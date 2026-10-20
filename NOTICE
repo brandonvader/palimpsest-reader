@@ -1,0 +1,13 @@
+Palimpsest
+Copyright (c) 2026 Brandon Vader
+
+Palimpsest is an unofficial, independent fork of CrossPoint Reader
+(https://github.com/crosspoint-reader/crosspoint-reader), used under the MIT License.
+Copyright (c) 2025 CrossPoint Reader organization.
+
+The upstream MIT license and copyright notice are retained in LICENSE.
+Palimpsest is not affiliated with, endorsed by, or supported by CrossPoint Reader,
+Dave Allie, or Xteink. "CrossPoint" and "Xteink" are names of their respective owners;
+no upstream logos or wordmarks are used for Palimpsest branding.
+
+Third-party components keep their own licenses (see freeink-sdk and lib/).
