@@ -43,7 +43,8 @@ def draw_mark():
 
 
 def to_header(img):
-    px = img.convert("L").load()
+    # The framebuffer is stored rotated: pre-rotate 90 deg CCW so the mark is upright on screen.
+    px = img.rotate(90).convert("L").load()
     out = []
     for y in range(SIZE):
         for x in range(0, SIZE, 8):
