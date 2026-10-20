@@ -5,6 +5,7 @@
 #include <Logging.h>
 #include <Memory.h>
 
+#include "BleScanActivity.h"
 #include "MappedInputManager.h"
 #include "WifiScanActivity.h"
 #include "components/UITheme.h"
@@ -15,7 +16,7 @@ UtilityCategoryActivity::UtilityCategoryActivity(GfxRenderer& renderer, MappedIn
                                                  const UtilityCategory category)
     : UiListActivity("UtilitiesTools", renderer, mappedInput), category(category) {}
 
-int UtilityCategoryActivity::toolCount() const { return category == UtilityCategory::WIFI ? 1 : 0; }
+int UtilityCategoryActivity::toolCount() const { return 1; }
 
 const char* UtilityCategoryActivity::headerTitle() const {
   return category == UtilityCategory::WIFI ? tr(STR_UTILITIES_WIFI) : tr(STR_UTILITIES_BLE);
@@ -29,8 +30,8 @@ void UtilityCategoryActivity::buildScreen(UiScreen& screen) {
 
   if (toolCount() == 0) {
     rowItems_[0].label = tr(STR_UTILITIES_EMPTY);
-  } else if (category == UtilityCategory::WIFI) {
-    rowItems_[0].label = tr(STR_UTILITIES_WIFI_SCAN);
+  } else {
+    rowItems_[0].label = category == UtilityCategory::WIFI ? tr(STR_UTILITIES_WIFI_SCAN) : tr(STR_UTILITIES_BLE_SCAN);
   }
   for (int i = 0; i < listCount(); i++) {
     rowItems_[i].actionValue = static_cast<int16_t>(i);
@@ -52,6 +53,8 @@ void UtilityCategoryActivity::activateIndex(const int index) {
   std::unique_ptr<Activity> tool;
   if (category == UtilityCategory::WIFI && index == 0) {
     tool = makeUniqueNoThrow<WifiScanActivity>(renderer, mappedInput);
+  } else if (category == UtilityCategory::BLE && index == 0) {
+    tool = makeUniqueNoThrow<BleScanActivity>(renderer, mappedInput);
   }
   if (!tool) {
     LOG_ERR("UTIL", "Failed to create tool activity");
