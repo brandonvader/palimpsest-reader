@@ -1,6 +1,6 @@
 # Palimpsest
 
-> **Unofficial, independent fork. Not affiliated with, endorsed by, or supported by CrossPoint Reader, Dave Allie, or Xteink.**
+> **Unofficial, independent fork. Not affiliated with, endorsed by, or supported by the CrossPoint Reader organization or Xteink.**
 
 Palimpsest is an e-reader-first firmware for the **Xteink X4 Pro**, based on the open-source
 [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader) firmware (MIT). The reading
