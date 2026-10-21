@@ -9,12 +9,16 @@
 // AirspaceMonitorActivity's snapshot members -- see the note there).
 struct BleFinderDevice {
   uint8_t addr[6] = {};
+  int8_t rssi = 0;
+  uint32_t lastSeenMs = 0;
 };
 
 struct BleFinderSpamSource {
   uint8_t addr[6] = {};
   uint32_t matchCount = 0;
   char lastType[24] = {};  // most recent matched pattern's label
+  int8_t rssi = 0;
+  uint32_t lastSeenMs = 0;
 };
 
 // Passive BLE "who's nearby" finder: continuous scan like BLE Capture
@@ -60,6 +64,10 @@ class BleFinderActivity final : public UiListActivity {
   // cleared); re-clearing it this often forces repeat advertisements to
   // reach our callback again, same technique BleCaptureActivity uses.
   static constexpr uint32_t REARM_MS = 1000;
+  // BLE devices typically advertise far more often than this; missing for
+  // this long is a fair sign a finding is genuinely gone, not just between
+  // advertisements.
+  static constexpr uint32_t STALE_THRESHOLD_MS = 10000;
 
   enum class State { IDLE, SCANNING, STOPPED };
   enum Severity : int { SEVERITY_CONFIRMED = 0, SEVERITY_NOTABLE = 1 };
@@ -67,6 +75,7 @@ class BleFinderActivity final : public UiListActivity {
   struct PendingAlert {
     int severity = SEVERITY_NOTABLE;
     char label[20] = {};
+    char subtitle[18] = {};  // signal ("-52 dBm ||||") or "Out of range"
     char value[40] = {};
   };
   static constexpr int MAX_ALERTS = MAX_FLIPPERS + MAX_TRACKERS + MAX_SPAM_SOURCES;

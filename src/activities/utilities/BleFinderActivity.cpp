@@ -10,6 +10,7 @@
 #include <cstring>
 
 #include "MappedInputManager.h"
+#include "SignalStrength.h"
 #include "activities/RenderLock.h"
 #include "components/UITheme.h"
 
@@ -89,34 +90,50 @@ int g_trackerCount = 0;
 BleFinderSpamSource g_spamSources[BleFinderActivity::MAX_SPAM_SOURCES];
 int g_spamCount = 0;
 
-bool addrKnown(const BleFinderDevice* table, const int count, const uint8_t* addr) {
+// Finds and updates an existing entry's rssi/lastSeenMs in place; returns
+// whether one was found, so recordFlipper/recordTracker only need to
+// insert a new entry when it returns false.
+bool touchKnown(BleFinderDevice* table, const int count, const uint8_t* addr, const int8_t rssi) {
   for (int i = 0; i < count; i++) {
-    if (memcmp(table[i].addr, addr, 6) == 0) return true;
+    if (memcmp(table[i].addr, addr, 6) == 0) {
+      table[i].rssi = rssi;
+      table[i].lastSeenMs = millis();
+      return true;
+    }
   }
   return false;
 }
 
 // Caller holds g_mux.
-void recordFlipper(const uint8_t* addr) {
-  if (addrKnown(g_flippers, g_flipperCount, addr)) return;
+void recordFlipper(const uint8_t* addr, const int8_t rssi) {
+  if (touchKnown(g_flippers, g_flipperCount, addr, rssi)) return;
   if (g_flipperCount >= BleFinderActivity::MAX_FLIPPERS) return;
-  memcpy(g_flippers[g_flipperCount++].addr, addr, 6);
+  BleFinderDevice& entry = g_flippers[g_flipperCount++];
+  memcpy(entry.addr, addr, 6);
+  entry.rssi = rssi;
+  entry.lastSeenMs = millis();
 }
 
 // Caller holds g_mux.
-void recordTracker(const uint8_t* addr) {
-  if (addrKnown(g_trackers, g_trackerCount, addr)) return;
+void recordTracker(const uint8_t* addr, const int8_t rssi) {
+  if (touchKnown(g_trackers, g_trackerCount, addr, rssi)) return;
   if (g_trackerCount >= BleFinderActivity::MAX_TRACKERS) return;
-  memcpy(g_trackers[g_trackerCount++].addr, addr, 6);
+  BleFinderDevice& entry = g_trackers[g_trackerCount++];
+  memcpy(entry.addr, addr, 6);
+  entry.rssi = rssi;
+  entry.lastSeenMs = millis();
 }
 
 // Caller holds g_mux. Returns the address's cumulative match count after
 // this one (0 if the table was full and this is a brand new, untracked
 // address -- naturally below the threshold, so the caller skips it).
-uint32_t recordSpamMatch(const uint8_t* addr, const char* type) {
+uint32_t recordSpamMatch(const uint8_t* addr, const char* type, const int8_t rssi) {
+  const uint32_t now = millis();
   for (int i = 0; i < g_spamCount; i++) {
     if (memcmp(g_spamSources[i].addr, addr, 6) == 0) {
       strlcpy(g_spamSources[i].lastType, type, sizeof(g_spamSources[0].lastType));
+      g_spamSources[i].rssi = rssi;
+      g_spamSources[i].lastSeenMs = now;
       return ++g_spamSources[i].matchCount;
     }
   }
@@ -125,6 +142,8 @@ uint32_t recordSpamMatch(const uint8_t* addr, const char* type) {
     memcpy(entry.addr, addr, 6);
     strlcpy(entry.lastType, type, sizeof(entry.lastType));
     entry.matchCount = 1;
+    entry.rssi = rssi;
+    entry.lastSeenMs = now;
     return 1;
   }
   return 0;
@@ -197,6 +216,7 @@ class FinderCallbacks : public NimBLEScanCallbacks {
     if (!dev) return;
     uint8_t addr[6];
     memcpy(addr, dev->getAddress().getVal(), 6);
+    const int8_t rssi = static_cast<int8_t>(dev->getRSSI());
 
     bool isFlipper = isFlipperOui(addr);
     if (!isFlipper && dev->haveName()) isFlipper = startsWithFlipper(dev->getName());
@@ -216,7 +236,7 @@ class FinderCallbacks : public NimBLEScanCallbacks {
       for (int p = 0; p < SPAM_PATTERN_COUNT; p++) {
         if (matchesSpamPattern(SPAM_PATTERNS[p], reinterpret_cast<const uint8_t*>(data.data()), data.size())) {
           portENTER_CRITICAL(&g_mux);
-          recordSpamMatch(addr, SPAM_PATTERNS[p].label);
+          recordSpamMatch(addr, SPAM_PATTERNS[p].label, rssi);
           portEXIT_CRITICAL(&g_mux);
           break;  // one match per manufacturer-data block is enough to count this advertisement
         }
@@ -224,19 +244,19 @@ class FinderCallbacks : public NimBLEScanCallbacks {
     }
     if (hasHid) {
       portENTER_CRITICAL(&g_mux);
-      recordSpamMatch(addr, "HID service advertised");
+      recordSpamMatch(addr, "HID service advertised", rssi);
       portEXIT_CRITICAL(&g_mux);
     }
     if (hasFastPair) {
       portENTER_CRITICAL(&g_mux);
-      recordSpamMatch(addr, "Fast Pair service advertised");
+      recordSpamMatch(addr, "Fast Pair service advertised", rssi);
       portEXIT_CRITICAL(&g_mux);
     }
 
     if (isFlipper || isTracker) {
       portENTER_CRITICAL(&g_mux);
-      if (isFlipper) recordFlipper(addr);
-      if (isTracker) recordTracker(addr);
+      if (isFlipper) recordFlipper(addr, rssi);
+      if (isTracker) recordTracker(addr, rssi);
       portEXIT_CRITICAL(&g_mux);
     }
   }
@@ -376,6 +396,7 @@ void BleFinderActivity::rebuildRows() {
   memcpy(spamSnapshot, g_spamSources, sizeof(BleFinderSpamSource) * spamCount);
   portEXIT_CRITICAL(&g_mux);
 
+  const uint32_t now = millis();
   int alertCount = 0;
 
   for (int i = 0; i < spamCount && alertCount < MAX_ALERTS; i++) {
@@ -386,6 +407,8 @@ void BleFinderActivity::rebuildRows() {
     snprintf(a.label, sizeof(a.label), "%02X:%02X:%02X:%02X:%02X:%02X", spamSnapshot[i].addr[0],
              spamSnapshot[i].addr[1], spamSnapshot[i].addr[2], spamSnapshot[i].addr[3], spamSnapshot[i].addr[4],
              spamSnapshot[i].addr[5]);
+    formatSignalSubtitle(a.subtitle, sizeof(a.subtitle), nullptr, spamSnapshot[i].rssi, spamSnapshot[i].lastSeenMs, now,
+                         STALE_THRESHOLD_MS);
     snprintf(a.value, sizeof(a.value), tr(STR_BLE_SPAM_DETECTED), spamSnapshot[i].lastType);
     alertCount++;
   }
@@ -397,6 +420,8 @@ void BleFinderActivity::rebuildRows() {
     snprintf(a.label, sizeof(a.label), "%02X:%02X:%02X:%02X:%02X:%02X", flipperSnapshot[i].addr[0],
              flipperSnapshot[i].addr[1], flipperSnapshot[i].addr[2], flipperSnapshot[i].addr[3],
              flipperSnapshot[i].addr[4], flipperSnapshot[i].addr[5]);
+    formatSignalSubtitle(a.subtitle, sizeof(a.subtitle), nullptr, flipperSnapshot[i].rssi,
+                         flipperSnapshot[i].lastSeenMs, now, STALE_THRESHOLD_MS);
     snprintf(a.value, sizeof(a.value), "%s", tr(STR_FLIPPER_DETECTED));
     alertCount++;
   }
@@ -408,6 +433,8 @@ void BleFinderActivity::rebuildRows() {
     snprintf(a.label, sizeof(a.label), "%02X:%02X:%02X:%02X:%02X:%02X", trackerSnapshot[i].addr[0],
              trackerSnapshot[i].addr[1], trackerSnapshot[i].addr[2], trackerSnapshot[i].addr[3],
              trackerSnapshot[i].addr[4], trackerSnapshot[i].addr[5]);
+    formatSignalSubtitle(a.subtitle, sizeof(a.subtitle), nullptr, trackerSnapshot[i].rssi,
+                         trackerSnapshot[i].lastSeenMs, now, STALE_THRESHOLD_MS);
     snprintf(a.value, sizeof(a.value), "%s", tr(STR_TRACKER_DETECTED));
     alertCount++;
   }
@@ -428,6 +455,7 @@ void BleFinderActivity::rebuildRows() {
     fui::ListItem& row = rows[rowCount];
     row = fui::ListItem{};
     row.label = alerts[i].label;
+    if (alerts[i].subtitle[0] != '\0') row.subtitle = alerts[i].subtitle;
     row.value = alerts[i].value;
     row.actionValue = static_cast<int16_t>(rowCount);
     rowCount++;

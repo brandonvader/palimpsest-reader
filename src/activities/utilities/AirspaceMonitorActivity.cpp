@@ -16,6 +16,7 @@
 #include "MappedInputManager.h"
 #include "OuiVendors.h"
 #include "Radiotap.h"
+#include "SignalStrength.h"
 #include "activities/RenderLock.h"
 #include "components/UITheme.h"
 
@@ -75,6 +76,8 @@ AirspaceDeauthSource g_deauthSources[AirspaceMonitorActivity::MAX_DEAUTH_SOURCES
 int g_deauthSourceCount = 0;
 bool g_pwnagotchySeen = false;
 char g_pwnagotchySsid[33] = {};
+int8_t g_pwnagotchyRssi = 0;
+uint32_t g_pwnagotchyLastSeenMs = 0;
 AirspaceSsidSighting g_ssidSightings[AirspaceMonitorActivity::MAX_TRACKED_SSIDS];
 int g_ssidCount = 0;
 AirspaceKarmaCandidate g_karmaCandidates[AirspaceMonitorActivity::MAX_KARMA_CANDIDATES];
@@ -91,16 +94,21 @@ volatile size_t g_forensicsTail = 0;
 // table fills rather than growing unbounded. Returns the source's count
 // after this frame (0 if the table was full and this is a brand new,
 // untracked source -- naturally below any threshold, so callers skip it).
-uint32_t recordDeauthSource(const uint8_t* mac) {
+uint32_t recordDeauthSource(const uint8_t* mac, const int8_t rssi) {
+  const uint32_t now = millis();
   for (int i = 0; i < g_deauthSourceCount; i++) {
     if (memcmp(g_deauthSources[i].mac, mac, 6) == 0) {
+      g_deauthSources[i].rssi = rssi;
+      g_deauthSources[i].lastSeenMs = now;
       return ++g_deauthSources[i].count;
     }
   }
   if (g_deauthSourceCount < AirspaceMonitorActivity::MAX_DEAUTH_SOURCES) {
-    memcpy(g_deauthSources[g_deauthSourceCount].mac, mac, 6);
-    g_deauthSources[g_deauthSourceCount].count = 1;
-    g_deauthSourceCount++;
+    AirspaceDeauthSource& entry = g_deauthSources[g_deauthSourceCount++];
+    memcpy(entry.mac, mac, 6);
+    entry.count = 1;
+    entry.rssi = rssi;
+    entry.lastSeenMs = now;
     return 1;
   }
   return 0;
@@ -150,7 +158,7 @@ bool recordSsidSighting(const char* ssid, const uint8_t* bssid, const bool priva
 // Caller holds g_mux. Tracks the set of distinct SSIDs each address has sent
 // probe responses for. Returns the address's distinct-SSID count after this
 // response.
-int recordKarmaResponse(const uint8_t* bssid, const char* ssid) {
+int recordKarmaResponse(const uint8_t* bssid, const char* ssid, const int8_t rssi) {
   AirspaceKarmaCandidate* entry = nullptr;
   for (int i = 0; i < g_karmaCount; i++) {
     if (memcmp(g_karmaCandidates[i].bssid, bssid, 6) == 0) {
@@ -163,6 +171,8 @@ int recordKarmaResponse(const uint8_t* bssid, const char* ssid) {
     entry = &g_karmaCandidates[g_karmaCount++];
     memcpy(entry->bssid, bssid, 6);
   }
+  entry->rssi = rssi;
+  entry->lastSeenMs = millis();
   for (int i = 0; i < entry->ssidCount; i++) {
     if (strcmp(entry->ssids[i], ssid) == 0) return entry->ssidCount;
   }
@@ -253,7 +263,7 @@ void onPromiscuousPacket(void* buf, const wifi_promiscuous_pkt_type_t type) {
 
   if (subtype == SUBTYPE_DEAUTH || subtype == SUBTYPE_DISASSOC) {
     portENTER_CRITICAL(&g_mux);
-    const uint32_t count = recordDeauthSource(transmitter);
+    const uint32_t count = recordDeauthSource(transmitter, pkt->rx_ctrl.rssi);
     if (count >= AirspaceMonitorActivity::DEAUTHER_THRESHOLD) {
       enqueueForensicFrame(pkt->payload, len, len, pkt->rx_ctrl.channel, pkt->rx_ctrl.rssi);
     }
@@ -268,6 +278,8 @@ void onPromiscuousPacket(void* buf, const wifi_promiscuous_pkt_type_t type) {
         portENTER_CRITICAL(&g_mux);
         g_pwnagotchySeen = true;
         strlcpy(g_pwnagotchySsid, ssid, sizeof(g_pwnagotchySsid));
+        g_pwnagotchyRssi = pkt->rx_ctrl.rssi;
+        g_pwnagotchyLastSeenMs = millis();
         portEXIT_CRITICAL(&g_mux);
       }
       return;
@@ -287,7 +299,7 @@ void onPromiscuousPacket(void* buf, const wifi_promiscuous_pkt_type_t type) {
     char ssid[33];
     if (!extractSsid(pkt->payload, len, ssid, sizeof(ssid)) || ssid[0] == '\0') return;
     portENTER_CRITICAL(&g_mux);
-    const int distinctSsids = recordKarmaResponse(transmitter, ssid);
+    const int distinctSsids = recordKarmaResponse(transmitter, ssid, pkt->rx_ctrl.rssi);
     if (distinctSsids >= AirspaceMonitorActivity::KARMA_SSID_THRESHOLD) {
       enqueueForensicFrame(pkt->payload, len, len, pkt->rx_ctrl.channel, pkt->rx_ctrl.rssi);
     }
@@ -478,6 +490,8 @@ void AirspaceMonitorActivity::rebuildRows() {
   int deauthCount;
   bool pwnSeen;
   char pwnSsid[sizeof(g_pwnagotchySsid)];
+  int8_t pwnRssi;
+  uint32_t pwnLastSeenMs;
   int ssidCount;
   int karmaCount;
   portENTER_CRITICAL(&g_mux);
@@ -485,12 +499,15 @@ void AirspaceMonitorActivity::rebuildRows() {
   memcpy(deauthSnapshot, g_deauthSources, sizeof(AirspaceDeauthSource) * deauthCount);
   pwnSeen = g_pwnagotchySeen;
   strlcpy(pwnSsid, g_pwnagotchySsid, sizeof(pwnSsid));
+  pwnRssi = g_pwnagotchyRssi;
+  pwnLastSeenMs = g_pwnagotchyLastSeenMs;
   ssidCount = g_ssidCount;
   memcpy(ssidSnapshot, g_ssidSightings, sizeof(AirspaceSsidSighting) * ssidCount);
   karmaCount = g_karmaCount;
   memcpy(karmaSnapshot, g_karmaCandidates, sizeof(AirspaceKarmaCandidate) * karmaCount);
   portEXIT_CRITICAL(&g_mux);
 
+  const uint32_t now = millis();
   int alertCount = 0;
 
   if (pwnSeen && alertCount < MAX_ALERTS) {
@@ -498,6 +515,7 @@ void AirspaceMonitorActivity::rebuildRows() {
     a = PendingAlert{};
     a.severity = SEVERITY_NOTABLE;
     snprintf(a.label, sizeof(a.label), "%s", tr(STR_PWNAGOTCHY_DETECTED));
+    formatSignalSubtitle(a.subtitle, sizeof(a.subtitle), nullptr, pwnRssi, pwnLastSeenMs, now, STALE_THRESHOLD_MS);
     snprintf(a.value, sizeof(a.value), "%s", pwnSsid);
     alertCount++;
   }
@@ -521,7 +539,8 @@ void AirspaceMonitorActivity::rebuildRows() {
              karmaSnapshot[i].bssid[1], karmaSnapshot[i].bssid[2], karmaSnapshot[i].bssid[3], karmaSnapshot[i].bssid[4],
              karmaSnapshot[i].bssid[5]);
     const char* vendor = OuiVendors::lookup(karmaSnapshot[i].bssid);
-    snprintf(a.subtitle, sizeof(a.subtitle), "%s", vendor ? vendor : tr(STR_UNKNOWN_VENDOR));
+    formatSignalSubtitle(a.subtitle, sizeof(a.subtitle), vendor ? vendor : tr(STR_UNKNOWN_VENDOR),
+                         karmaSnapshot[i].rssi, karmaSnapshot[i].lastSeenMs, now, STALE_THRESHOLD_MS);
     snprintf(a.value, sizeof(a.value), tr(STR_KARMA_AP), static_cast<unsigned>(karmaSnapshot[i].ssidCount));
     alertCount++;
   }
@@ -536,7 +555,8 @@ void AirspaceMonitorActivity::rebuildRows() {
              deauthSnapshot[i].mac[1], deauthSnapshot[i].mac[2], deauthSnapshot[i].mac[3], deauthSnapshot[i].mac[4],
              deauthSnapshot[i].mac[5]);
     const char* vendor = OuiVendors::lookup(deauthSnapshot[i].mac);
-    snprintf(a.subtitle, sizeof(a.subtitle), "%s", vendor ? vendor : tr(STR_UNKNOWN_VENDOR));
+    formatSignalSubtitle(a.subtitle, sizeof(a.subtitle), vendor ? vendor : tr(STR_UNKNOWN_VENDOR),
+                         deauthSnapshot[i].rssi, deauthSnapshot[i].lastSeenMs, now, STALE_THRESHOLD_MS);
     if (deauthSnapshot[i].count >= DEAUTHER_THRESHOLD) {
       snprintf(a.value, sizeof(a.value), tr(STR_LIKELY_DEAUTHER), static_cast<unsigned>(deauthSnapshot[i].count));
     } else {

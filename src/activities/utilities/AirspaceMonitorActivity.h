@@ -13,6 +13,8 @@
 struct AirspaceDeauthSource {
   uint8_t mac[6] = {};
   uint32_t count = 0;
+  int8_t rssi = 0;
+  uint32_t lastSeenMs = 0;
 };
 
 struct AirspaceSsidSighting {
@@ -27,6 +29,8 @@ struct AirspaceKarmaCandidate {
   uint8_t bssid[6] = {};
   char ssids[6][33] = {};  // AirspaceMonitorActivity::MAX_SSIDS_PER_KARMA
   int ssidCount = 0;
+  int8_t rssi = 0;
+  uint32_t lastSeenMs = 0;
 };
 
 // Passive WiFi airspace health monitor: hops channels 1-13 like Channel
@@ -71,6 +75,11 @@ class AirspaceMonitorActivity final : public UiListActivity {
   // A real AP's multi-SSID setup rarely exceeds a couple of names; this many
   // distinct SSIDs answered by one address in a session is not normal.
   static constexpr int KARMA_SSID_THRESHOLD = 4;
+  // A full channel sweep is ~4.5s (13 channels x DWELL_MS); missing for this
+  // long is a few sweeps' worth of silence, a fair sign a single-address
+  // finding (deauth source, Pwnagotchy, Karma AP) is genuinely gone rather
+  // than just not heard on the current sweep yet.
+  static constexpr uint32_t STALE_THRESHOLD_MS = 15000;
 
   explicit AirspaceMonitorActivity(GfxRenderer& renderer, MappedInputManager& mappedInput);
 
@@ -102,7 +111,7 @@ class AirspaceMonitorActivity final : public UiListActivity {
   struct PendingAlert {
     int severity = SEVERITY_INFO;
     char label[24] = {};
-    char subtitle[18] = {};
+    char subtitle[32] = {};  // vendor + signal ("Espressif  -52 dBm ||||") or "Out of range"
     char value[40] = {};
   };
   static constexpr int MAX_ALERTS = 1 /*Pwnagotchy*/ + MAX_DEAUTH_SOURCES + MAX_TRACKED_SSIDS + MAX_KARMA_CANDIDATES;

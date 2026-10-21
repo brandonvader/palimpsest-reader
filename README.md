@@ -97,6 +97,11 @@ Once any of the above escalates, its subsequent frames are saved to one pcap fil
 (`/Palimpsest/captures/airspace-<timestamp>.pcap`, same radiotap format and safety caps as Frame Capture) for offline
 forensics; a session with nothing escalating writes no extra file at all.
 
+Deauth sources, Pwnagotchy, and Karma APs (each a single physical address) also show a signal-strength subtitle —
+dBm plus a 4-bar indicator, same visual convention as the stock WiFi network picker — refreshed every 5 seconds, for
+basic fox-hunting. If nothing's been heard from a finding in ~15 seconds it reads "Out of range" instead of a stale
+number. Evil twin findings don't get this (they represent multiple addresses, not one device to walk toward).
+
 ### Device Finder
 
 Device Finder (`Utilities → BLE Tools → Device Finder`) is a continuous BLE scan (like BLE Capture, periodically
@@ -114,6 +119,9 @@ clearing NimBLE's own dedup cache so repeat advertisements keep registering) tha
   Wall-of-Flippers. A single match is not shown — ordinary earbuds legitimately send some of these during normal
   pairing-mode chatter — only an address crossing a cumulative threshold (25 matches, Wall-of-Flippers' own sourced
   default) is flagged, and this is not Flipper-specific: any BLE spam tool trips it.
+
+Every finding shows the same signal-strength subtitle as Airspace Monitor (dBm + 4-bar indicator), refreshed every
+5 seconds, with "Out of range" once nothing's been heard from it in ~10 seconds.
 
 ## Authorized use
 
