@@ -6,6 +6,7 @@
 #include <Memory.h>
 
 #include "BleScanActivity.h"
+#include "ChannelSurveyActivity.h"
 #include "MappedInputManager.h"
 #include "WifiScanActivity.h"
 #include "components/UITheme.h"
@@ -16,7 +17,7 @@ UtilityCategoryActivity::UtilityCategoryActivity(GfxRenderer& renderer, MappedIn
                                                  const UtilityCategory category)
     : UiListActivity("UtilitiesTools", renderer, mappedInput), category(category) {}
 
-int UtilityCategoryActivity::toolCount() const { return 1; }
+int UtilityCategoryActivity::toolCount() const { return category == UtilityCategory::WIFI ? 2 : 1; }
 
 const char* UtilityCategoryActivity::headerTitle() const {
   return category == UtilityCategory::WIFI ? tr(STR_UTILITIES_WIFI) : tr(STR_UTILITIES_BLE);
@@ -30,8 +31,11 @@ void UtilityCategoryActivity::buildScreen(UiScreen& screen) {
 
   if (toolCount() == 0) {
     rowItems_[0].label = tr(STR_UTILITIES_EMPTY);
+  } else if (category == UtilityCategory::WIFI) {
+    rowItems_[0].label = tr(STR_UTILITIES_WIFI_SCAN);
+    rowItems_[1].label = tr(STR_UTILITIES_CHANNEL_SURVEY);
   } else {
-    rowItems_[0].label = category == UtilityCategory::WIFI ? tr(STR_UTILITIES_WIFI_SCAN) : tr(STR_UTILITIES_BLE_SCAN);
+    rowItems_[0].label = tr(STR_UTILITIES_BLE_SCAN);
   }
   for (int i = 0; i < listCount(); i++) {
     rowItems_[i].actionValue = static_cast<int16_t>(i);
@@ -51,8 +55,12 @@ void UtilityCategoryActivity::buildScreen(UiScreen& screen) {
 void UtilityCategoryActivity::activateIndex(const int index) {
   if (index < 0 || index >= toolCount()) return;
   std::unique_ptr<Activity> tool;
-  if (category == UtilityCategory::WIFI && index == 0) {
-    tool = makeUniqueNoThrow<WifiScanActivity>(renderer, mappedInput);
+  if (category == UtilityCategory::WIFI) {
+    if (index == 0) {
+      tool = makeUniqueNoThrow<WifiScanActivity>(renderer, mappedInput);
+    } else if (index == 1) {
+      tool = makeUniqueNoThrow<ChannelSurveyActivity>(renderer, mappedInput);
+    }
   } else if (category == UtilityCategory::BLE && index == 0) {
     tool = makeUniqueNoThrow<BleScanActivity>(renderer, mappedInput);
   }
