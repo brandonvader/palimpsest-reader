@@ -1,0 +1,360 @@
+00:00:0C	Cisco       	Cisco Systems, Inc
+00:00:97	DellEMC     	Dell EMC
+00:00:F0	SamsungElect	Samsung Electronics Co.,Ltd
+00:01:42	Cisco       	Cisco Systems, Inc
+00:01:43	Cisco       	Cisco Systems, Inc
+00:01:44	DellEMC     	Dell EMC
+00:01:E6	HewlettPacka	Hewlett Packard
+00:01:E7	HewlettPacka	Hewlett Packard
+00:02:78	SamsungElect	Samsung Electro Mechanics Co., Ltd.
+00:02:A5	HewlettPacka	Hewlett Packard
+00:02:B3	Intel       	Intel Corporation
+00:03:47	Intel       	Intel Corporation
+00:03:93	Apple       	Apple, Inc.
+00:03:FF	Microsoft   	Microsoft Corporation
+00:04:23	Intel       	Intel Corporation
+00:04:3C	SONOS       	SONOS Co., Ltd.
+00:05:02	Apple       	Apple, Inc.
+00:05:5D	DLink       	D-Link Systems, Inc.
+00:06:1B	NotebookDeve	Notebook Development Lab. Lenovo Japan Ltd.
+00:06:5B	Dell        	Dell Inc.
+00:07:AB	SamsungElect	Samsung Electronics Co.,Ltd
+00:08:FB	SonoSite    	SonoSite, Inc.
+00:09:5B	Netgear     	Netgear
+00:0A:27	Apple       	Apple, Inc.
+00:0A:EB	TpLinkTechno	Tp-Link Technologies Co.,Ltd.
+00:0B:E1	NokiaNETProd	Nokia NET Product Operations
+00:0D:3A	Microsoft   	Microsoft Corp.
+00:0D:88	DLink       	D-Link Corporation
+00:0E:58	Sonos       	Sonos, Inc.
+00:0F:3D	DLink       	D-Link Corporation
+00:0F:B5	Netgear     	Netgear
+00:12:5A	Microsoft   	Microsoft Corporation
+00:12:FE	LenovoMobile	Lenovo Mobile Communication Technology Ltd.
+00:14:6C	Netgear     	Netgear
+00:14:78	TpLinkTechno	Tp-Link Technologies Co.,Ltd.
+00:15:6D	Ubiquiti    	Ubiquiti Inc
+00:18:82	HuaweiTechno	Huawei Technologies Co.,Ltd
+00:19:E0	TpLinkTechno	Tp-Link Technologies Co.,Ltd.
+00:1A:11	Google      	Google, Inc.
+00:1E:10	HuaweiTechno	Huawei Technologies Co.,Ltd
+00:25:68	HuaweiTechno	Huawei Technologies Co.,Ltd
+00:27:22	Ubiquiti    	Ubiquiti Inc
+00:4B:12	Espressif   	Espressif Inc.
+00:59:07	LenovoEMCPro	LenovoEMC Products USA, LLC
+00:70:07	Espressif   	Espressif Inc.
+00:71:47	AmazonTechno	Amazon Technologies Inc.
+00:86:21	AmazonTechno	Amazon Technologies Inc.
+00:9E:C8	XiaomiCommun	Xiaomi Communications Co Ltd
+00:BB:3A	AmazonTechno	Amazon Technologies Inc.
+00:C3:0A	XiaomiCommun	Xiaomi Communications Co Ltd
+00:EC:0A	XiaomiCommun	Xiaomi Communications Co Ltd
+00:F6:20	Google      	Google, Inc.
+04:00:6E	Google      	Google, Inc.
+04:83:08	Espressif   	Espressif Inc.
+04:B2:47	Espressif   	Espressif Inc.
+08:3A:8D	Espressif   	Espressif Inc.
+08:3A:F2	Espressif   	Espressif Inc.
+08:92:72	Espressif   	Espressif Inc.
+08:A6:F7	Espressif   	Espressif Inc.
+08:B6:1F	Espressif   	Espressif Inc.
+08:D1:F9	Espressif   	Espressif Inc.
+08:F9:E0	Espressif   	Espressif Inc.
+0C:4E:A0	Espressif   	Espressif Inc.
+0C:8B:95	Espressif   	Espressif Inc.
+0C:B8:15	Espressif   	Espressif Inc.
+0C:DC:7E	Espressif   	Espressif Inc.
+0C:FA:22	FlipperDevic	Flipper Devices Inc
+10:00:3B	Espressif   	Espressif Inc.
+10:06:1C	Espressif   	Espressif Inc.
+10:20:BA	Espressif   	Espressif Inc.
+10:51:DB	Espressif   	Espressif Inc.
+10:52:1C	Espressif   	Espressif Inc.
+10:91:A8	Espressif   	Espressif Inc.
+10:97:BD	Espressif   	Espressif Inc.
+10:B4:1D	Espressif   	Espressif Inc.
+10:BD:A3	Espressif   	Espressif Inc.
+14:08:08	Espressif   	Espressif Inc.
+14:2B:2F	Espressif   	Espressif Inc.
+14:33:5C	Espressif   	Espressif Inc.
+14:63:93	Espressif   	Espressif Inc.
+14:C1:9F	Espressif   	Espressif Inc.
+18:8B:0E	Espressif   	Espressif Inc.
+18:FE:34	Espressif   	Espressif Inc.
+1C:69:20	Espressif   	Espressif Inc.
+1C:8F:57	Espressif   	Espressif Inc.
+1C:9D:C2	Espressif   	Espressif Inc.
+1C:C3:AB	Espressif   	Espressif Inc.
+1C:DB:D4	Espressif   	Espressif Inc.
+20:43:A8	Espressif   	Espressif Inc.
+20:6E:F1	Espressif   	Espressif Inc.
+20:9B:A9	Espressif   	Espressif Inc.
+20:E7:C8	Espressif   	Espressif Inc.
+24:0A:C4	Espressif   	Espressif Inc.
+24:4C:AB	Espressif   	Espressif Inc.
+24:58:7C	Espressif   	Espressif Inc.
+24:62:AB	Espressif   	Espressif Inc.
+24:6F:28	Espressif   	Espressif Inc.
+24:A1:60	Espressif   	Espressif Inc.
+24:B2:DE	Espressif   	Espressif Inc.
+24:D7:EB	Espressif   	Espressif Inc.
+24:DC:C3	Espressif   	Espressif Inc.
+24:EC:4A	Espressif   	Espressif Inc.
+28:05:A5	Espressif   	Espressif Inc.
+28:37:2F	Espressif   	Espressif Inc.
+28:56:2F	Espressif   	Espressif Inc.
+28:84:85	Espressif   	Espressif Inc.
+28:CD:C1	RaspberryPiT	Raspberry Pi Trading Ltd
+2C:3A:E8	Espressif   	Espressif Inc.
+2C:A7:EF	OnePlusTechn	OnePlus Technology (Shenzhen) Co., Ltd
+2C:BC:BB	Espressif   	Espressif Inc.
+2C:CF:67	RaspberryPi 	Raspberry Pi (Trading) Ltd
+2C:F4:32	Espressif   	Espressif Inc.
+30:30:F9	Espressif   	Espressif Inc.
+30:76:F5	Espressif   	Espressif Inc.
+30:83:98	Espressif   	Espressif Inc.
+30:AE:A4	Espressif   	Espressif Inc.
+30:BB:7D	OnePlusTechn	OnePlus Technology (Shenzhen) Co., Ltd
+30:C6:F7	Espressif   	Espressif Inc.
+30:C9:22	Espressif   	Espressif Inc.
+30:ED:A0	Espressif   	Espressif Inc.
+34:5F:45	Espressif   	Espressif Inc.
+34:85:18	Espressif   	Espressif Inc.
+34:86:5D	Espressif   	Espressif Inc.
+34:94:54	Espressif   	Espressif Inc.
+34:98:7A	Espressif   	Espressif Inc.
+34:AB:95	Espressif   	Espressif Inc.
+34:B4:72	Espressif   	Espressif Inc.
+34:B7:DA	Espressif   	Espressif Inc.
+34:CD:B0	Espressif   	Espressif Inc.
+38:18:2B	Espressif   	Espressif Inc.
+38:44:BE	Espressif   	Espressif Inc.
+3C:0F:02	Espressif   	Espressif Inc.
+3C:61:05	Espressif   	Espressif Inc.
+3C:71:BF	Espressif   	Espressif Inc.
+3C:84:27	Espressif   	Espressif Inc.
+3C:8A:1F	Espressif   	Espressif Inc.
+3C:DC:75	Espressif   	Espressif Inc.
+3C:E9:0E	Espressif   	Espressif Inc.
+40:22:D8	Espressif   	Espressif Inc.
+40:4C:CA	Espressif   	Espressif Inc.
+40:91:51	Espressif   	Espressif Inc.
+40:F5:20	Espressif   	Espressif Inc.
+44:17:93	Espressif   	Espressif Inc.
+44:1B:F6	Espressif   	Espressif Inc.
+44:1D:64	Espressif   	Espressif Inc.
+48:01:C5	OnePlusTechn	OnePlus Technology (Shenzhen) Co., Ltd
+48:27:E2	Espressif   	Espressif Inc.
+48:31:B7	Espressif   	Espressif Inc.
+48:3F:DA	Espressif   	Espressif Inc.
+48:55:19	Espressif   	Espressif Inc.
+48:9D:31	Espressif   	Espressif Inc.
+48:CA:43	Espressif   	Espressif Inc.
+48:E7:29	Espressif   	Espressif Inc.
+48:F6:EE	Espressif   	Espressif Inc.
+4C:11:AE	Espressif   	Espressif Inc.
+4C:75:25	Espressif   	Espressif Inc.
+4C:C3:82	Espressif   	Espressif Inc.
+4C:EB:D6	Espressif   	Espressif Inc.
+50:02:91	Espressif   	Espressif Inc.
+50:78:7D	Espressif   	Espressif Inc.
+54:32:04	Espressif   	Espressif Inc.
+54:43:B2	Espressif   	Espressif Inc.
+54:5A:A6	Espressif   	Espressif Inc.
+58:8C:81	Espressif   	Espressif Inc.
+58:BF:25	Espressif   	Espressif Inc.
+58:CF:79	Espressif   	Espressif Inc.
+58:E6:C5	Espressif   	Espressif Inc.
+5C:01:3B	Espressif   	Espressif Inc.
+5C:CF:7F	Espressif   	Espressif Inc.
+60:01:94	Espressif   	Espressif Inc.
+60:55:F9	Espressif   	Espressif Inc.
+64:B7:08	Espressif   	Espressif Inc.
+64:E8:33	Espressif   	Espressif Inc.
+68:09:47	Espressif   	Espressif Inc.
+68:25:DD	Espressif   	Espressif Inc.
+68:67:25	Espressif   	Espressif Inc.
+68:B6:B3	Espressif   	Espressif Inc.
+68:C6:3A	Espressif   	Espressif Inc.
+68:FE:71	Espressif   	Espressif Inc.
+6C:B4:56	Espressif   	Espressif Inc.
+6C:C8:40	Espressif   	Espressif Inc.
+70:03:9F	Espressif   	Espressif Inc.
+70:04:1D	Espressif   	Espressif Inc.
+70:4B:CA	Espressif   	Espressif Inc.
+70:AF:09	Espressif   	Espressif Inc.
+70:B8:F6	Espressif   	Espressif Inc.
+74:4D:BD	Espressif   	Espressif Inc.
+78:1C:3C	Espressif   	Espressif Inc.
+78:21:84	Espressif   	Espressif Inc.
+78:42:1C	Espressif   	Espressif Inc.
+78:E3:6D	Espressif   	Espressif Inc.
+78:EE:4C	Espressif   	Espressif Inc.
+7C:2C:67	Espressif   	Espressif Inc.
+7C:73:98	Espressif   	Espressif Inc.
+7C:87:CE	Espressif   	Espressif Inc.
+7C:9E:BD	Espressif   	Espressif Inc.
+7C:DF:A1	Espressif   	Espressif Inc.
+80:64:6F	Espressif   	Espressif Inc.
+80:65:99	Espressif   	Espressif Inc.
+80:7D:3A	Espressif   	Espressif Inc.
+80:B5:4E	Espressif   	Espressif Inc.
+80:E1:26	FlipperDevic	Flipper Devices Inc (not yet in Wireshark's manuf db; source: maclookup.app via Wall-of-Flippers)
+80:E1:27	FlipperDevic	Flipper Devices Inc (not yet in Wireshark's manuf db; source: maclookup.app via Wall-of-Flippers)
+80:F1:B2	Espressif   	Espressif Inc.
+80:F3:DA	Espressif   	Espressif Inc.
+84:0D:8E	Espressif   	Espressif Inc.
+84:1F:E8	Espressif   	Espressif Inc.
+84:CC:A8	Espressif   	Espressif Inc.
+84:F3:EB	Espressif   	Espressif Inc.
+84:F7:03	Espressif   	Espressif Inc.
+84:FC:E6	Espressif   	Espressif Inc.
+88:13:BF	Espressif   	Espressif Inc.
+88:56:A6	Espressif   	Espressif Inc.
+88:57:21	Espressif   	Espressif Inc.
+88:F1:55	Espressif   	Espressif Inc.
+8C:4B:14	Espressif   	Espressif Inc.
+8C:4F:00	Espressif   	Espressif Inc.
+8C:8C:29	Espressif   	Espressif Inc.
+8C:94:DF	Espressif   	Espressif Inc.
+8C:AA:B5	Espressif   	Espressif Inc.
+8C:BF:EA	Espressif   	Espressif Inc.
+8C:CE:4E	Espressif   	Espressif Inc.
+8C:FD:49	Espressif   	Espressif Inc.
+90:15:06	Espressif   	Espressif Inc.
+90:38:0C	Espressif   	Espressif Inc.
+90:70:69	Espressif   	Espressif Inc.
+90:97:D5	Espressif   	Espressif Inc.
+90:E5:B1	Espressif   	Espressif Inc.
+94:3C:C6	Espressif   	Espressif Inc.
+94:51:DC	Espressif   	Espressif Inc.
+94:54:C5	Espressif   	Espressif Inc.
+94:A9:90	Espressif   	Espressif Inc.
+94:B5:55	Espressif   	Espressif Inc.
+94:B9:7E	Espressif   	Espressif Inc.
+94:E6:86	Espressif   	Espressif Inc.
+98:3D:AE	Espressif   	Espressif Inc.
+98:88:E0	Espressif   	Espressif Inc.
+98:A3:16	Espressif   	Espressif Inc.
+98:CD:AC	Espressif   	Espressif Inc.
+98:F4:AB	Espressif   	Espressif Inc.
+9C:13:9E	Espressif   	Espressif Inc.
+9C:9C:1F	Espressif   	Espressif Inc.
+9C:9E:6E	Espressif   	Espressif Inc.
+A0:20:A6	Espressif   	Espressif Inc.
+A0:76:4E	Espressif   	Espressif Inc.
+A0:85:E3	Espressif   	Espressif Inc.
+A0:A3:B3	Espressif   	Espressif Inc.
+A0:B7:65	Espressif   	Espressif Inc.
+A0:DD:6C	Espressif   	Espressif Inc.
+A0:F2:62	Espressif   	Espressif Inc.
+A4:7B:9D	Espressif   	Espressif Inc.
+A4:CB:8F	Espressif   	Espressif Inc.
+A4:CF:12	Espressif   	Espressif Inc.
+A4:E5:7C	Espressif   	Espressif Inc.
+A4:F0:0F	Espressif   	Espressif Inc.
+A8:03:2A	Espressif   	Espressif Inc.
+A8:42:E3	Espressif   	Espressif Inc.
+A8:46:74	Espressif   	Espressif Inc.
+A8:48:FA	Espressif   	Espressif Inc.
+AC:0B:FB	Espressif   	Espressif Inc.
+AC:15:18	Espressif   	Espressif Inc.
+AC:27:6E	Espressif   	Espressif Inc.
+AC:67:B2	Espressif   	Espressif Inc.
+AC:A7:04	Espressif   	Espressif Inc.
+AC:D0:74	Espressif   	Espressif Inc.
+AC:EB:E6	Espressif   	Espressif Inc.
+B0:81:84	Espressif   	Espressif Inc.
+B0:A6:04	Espressif   	Espressif Inc.
+B0:A7:32	Espressif   	Espressif Inc.
+B0:B2:1C	Espressif   	Espressif Inc.
+B0:CB:D8	Espressif   	Espressif Inc.
+B4:3A:45	Espressif   	Espressif Inc.
+B4:8A:0A	Espressif   	Espressif Inc.
+B4:BF:E9	Espressif   	Espressif Inc.
+B4:E6:2D	Espressif   	Espressif Inc.
+B8:27:EB	RaspberryPiF	Raspberry Pi Foundation
+B8:D6:1A	Espressif   	Espressif Inc.
+B8:F0:09	Espressif   	Espressif Inc.
+B8:F8:62	Espressif   	Espressif Inc.
+BC:DD:C2	Espressif   	Espressif Inc.
+BC:FF:4D	Espressif   	Espressif Inc.
+C0:49:EF	Espressif   	Espressif Inc.
+C0:4E:30	Espressif   	Espressif Inc.
+C0:5D:89	Espressif   	Espressif Inc.
+C0:CD:D6	Espressif   	Espressif Inc.
+C4:4F:33	Espressif   	Espressif Inc.
+C4:5B:BE	Espressif   	Espressif Inc.
+C4:D8:D5	Espressif   	Espressif Inc.
+C4:DD:57	Espressif   	Espressif Inc.
+C4:DE:E2	Espressif   	Espressif Inc.
+C8:2B:96	Espressif   	Espressif Inc.
+C8:2E:18	Espressif   	Espressif Inc.
+C8:C9:A3	Espressif   	Espressif Inc.
+C8:F0:9E	Espressif   	Espressif Inc.
+CC:50:E3	Espressif   	Espressif Inc.
+CC:7B:5C	Espressif   	Espressif Inc.
+CC:8D:A2	Espressif   	Espressif Inc.
+CC:BA:97	Espressif   	Espressif Inc.
+CC:DB:A7	Espressif   	Espressif Inc.
+D0:CF:13	Espressif   	Espressif Inc.
+D0:EF:76	Espressif   	Espressif Inc.
+D4:8A:FC	Espressif   	Espressif Inc.
+D4:8C:49	Espressif   	Espressif Inc.
+D4:D4:DA	Espressif   	Espressif Inc.
+D4:E9:F4	Espressif   	Espressif Inc.
+D4:F9:8D	Espressif   	Espressif Inc.
+D8:13:2A	Espressif   	Espressif Inc.
+D8:3A:DD	RaspberryPiT	Raspberry Pi Trading Ltd
+D8:3B:DA	Espressif   	Espressif Inc.
+D8:85:AC	Espressif   	Espressif Inc.
+D8:A0:1D	Espressif   	Espressif Inc.
+D8:BC:38	Espressif   	Espressif Inc.
+D8:BF:C0	Espressif   	Espressif Inc.
+D8:F1:5B	Espressif   	Espressif Inc.
+DC:06:75	Espressif   	Espressif Inc.
+DC:1E:D5	Espressif   	Espressif Inc.
+DC:4F:22	Espressif   	Espressif Inc.
+DC:54:75	Espressif   	Espressif Inc.
+DC:A6:32	RaspberryPiT	Raspberry Pi Trading Ltd
+DC:B4:D9	Espressif   	Espressif Inc.
+DC:DA:0C	Espressif   	Espressif Inc.
+E0:5A:1B	Espressif   	Espressif Inc.
+E0:72:A1	Espressif   	Espressif Inc.
+E0:8C:FE	Espressif   	Espressif Inc.
+E0:98:06	Espressif   	Espressif Inc.
+E0:E2:E6	Espressif   	Espressif Inc.
+E4:5F:01	RaspberryPiT	Raspberry Pi Trading Ltd
+E4:65:B8	Espressif   	Espressif Inc.
+E4:B0:63	Espressif   	Espressif Inc.
+E4:B3:23	Espressif   	Espressif Inc.
+E8:06:90	Espressif   	Espressif Inc.
+E8:31:CD	Espressif   	Espressif Inc.
+E8:3D:C1	Espressif   	Espressif Inc.
+E8:68:E7	Espressif   	Espressif Inc.
+E8:6B:EA	Espressif   	Espressif Inc.
+E8:9F:6D	Espressif   	Espressif Inc.
+E8:DB:84	Espressif   	Espressif Inc.
+E8:F6:0A	Espressif   	Espressif Inc.
+EC:62:60	Espressif   	Espressif Inc.
+EC:64:C9	Espressif   	Espressif Inc.
+EC:94:CB	Espressif   	Espressif Inc.
+EC:C9:FF	Espressif   	Espressif Inc.
+EC:DA:3B	Espressif   	Espressif Inc.
+EC:E3:34	Espressif   	Espressif Inc.
+EC:FA:BC	Espressif   	Espressif Inc.
+F0:08:D1	Espressif   	Espressif Inc.
+F0:16:1D	Espressif   	Espressif Inc.
+F0:24:F9	Espressif   	Espressif Inc.
+F0:9E:9E	Espressif   	Espressif Inc.
+F0:F5:BD	Espressif   	Espressif Inc.
+F4:12:FA	Espressif   	Espressif Inc.
+F4:2D:C9	Espressif   	Espressif Inc.
+F4:65:0B	Espressif   	Espressif Inc.
+F4:CF:A2	Espressif   	Espressif Inc.
+F8:5B:1B	Espressif   	Espressif Inc.
+F8:B3:B7	Espressif   	Espressif Inc.
+FC:01:2C	Espressif   	Espressif Inc.
+FC:B4:67	Espressif   	Espressif Inc.
+FC:E8:C0	Espressif   	Espressif Inc.
+FC:F5:C4	Espressif   	Espressif Inc.

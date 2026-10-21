@@ -25,7 +25,8 @@ and a WiFi channel survey (roadmap 5a/5b) have since been built as well.
 | BLE Scan (name, address, address type, connectable, RSSI; Rescan) | done |
 | Frame Capture (WiFi management frames to pcap, Wireshark-ready) | done |
 | BLE Capture (advertisements to pcap, Wireshark-ready) | done |
-| Capture logging to SD | done (both capture tools; retention is manual, see below) |
+| Airspace Monitor (deauth/Pwnagotchy/evil twin/Karma detection) | done |
+| Capture logging to SD | done (all three capture-capable tools; retention is manual, see below) |
 
 Known limitations, both accepted for now (tracked in the project backlog):
 - the first WiFi Scan after boot keeps about 18 KB of heap held by the WiFi driver until the next reboot; it does
@@ -60,6 +61,34 @@ type for every advertisement seen, just reassembled into the wire format rather 
 dissects it exactly as it would a real one; nothing shown is fabricated, only the bus framing around it is
 reconstructed. (NimBLE also deduplicates advertisements by address in its own cache; this tool periodically clears
 that cache during a capture so repeat advertisements keep showing up, rather than each device appearing only once.)
+
+### Airspace Monitor
+
+Airspace Monitor (`Utilities → WiFi Tools → Airspace Monitor`) is a continuous, Start/Stop blue-team screen rather
+than a raw capture tool: it hops channels like the capture tools and surfaces four kinds of finding in one
+severity-sorted list.
+
+- **Deauth/disassoc fingerprinting.** Counts deauth and disassoc frames per transmitter address (the radio that
+  actually sent the frame, not the address it claims to be deauthenticating). Five or more from one source in a
+  session reads as a likely attacker rather than normal client roaming. Each source is looked up against a curated
+  OUI vendor table (~360 entries: every Espressif prefix, Raspberry Pi's, Flipper Zero's, and common consumer/
+  networking vendors — built from `tshark -G manuf`, Wireshark's own database, via `scripts/gen_oui_table.py`) for a
+  rough "what is this" hint; unrecognized MACs show "Unknown vendor" rather than a guess.
+- **Pwnagotchy.** Its status "beacon" always transmits from the fixed address `de:ad:be:ef:de:ad` with its name and
+  stats as JSON text in the SSID — the same fingerprint [ESP32Marauder's pwnagotchi
+  detector](https://github.com/justcallmekoko/ESP32Marauder/wiki/detect-pwnagotchi) uses. Shown with its raw SSID
+  text; the JSON is never parsed on-device, since a malformed or adversarial string should never reach a parser.
+- **Evil twin.** The same SSID broadcast with a different Privacy bit (open vs protected) from more than one
+  address. Deliberately a coarse open-vs-protected check rather than full RSN cipher/AKM decoding — it catches the
+  most common and most dangerous pattern (an open clone of a normally protected network) without claiming precision
+  this tool doesn't have on, say, a WPA2-vs-WPA3 mismatch, and a legitimate multi-AP deployment broadcasting the same
+  SSID with matching security everywhere (as most conference venues do) never trips it.
+- **Karma.** One address sending probe responses claiming to be four or more distinct SSIDs — a real AP only answers
+  for its own configured name(s).
+
+Once any of the above escalates, its subsequent frames are saved to one pcap file per session
+(`/Palimpsest/captures/airspace-<timestamp>.pcap`, same radiotap format and safety caps as Frame Capture) for offline
+forensics; a session with nothing escalating writes no extra file at all.
 
 ## Authorized use
 

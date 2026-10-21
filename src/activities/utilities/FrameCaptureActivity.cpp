@@ -14,6 +14,7 @@
 #include <cstring>
 
 #include "MappedInputManager.h"
+#include "Radiotap.h"
 #include "activities/RenderLock.h"
 #include "components/UITheme.h"
 
@@ -22,36 +23,6 @@ namespace fui = freeink::ui;
 namespace {
 constexpr size_t RING_SLOTS = 64;
 constexpr size_t SNAPLEN = 512;  // longest frame body kept per record; longer frames are truncated
-
-constexpr uint32_t DLT_IEEE802_11_RADIOTAP = 127;  // http://www.tcpdump.org/linktypes.html
-
-// Minimal radiotap header carrying just Channel (bit 3) and dBm Antenna
-// Signal (bit 5). Field order follows increasing bit number and each field
-// sits at the offset its own size requires from the header start, per the
-// radiotap spec (https://www.radiotap.org/). Packed so sizeof() matches the
-// on-wire layout exactly -- natural struct alignment would pad this to a
-// 4-byte multiple and corrupt the format.
-#pragma pack(push, 1)
-struct RadiotapHeader {
-  uint8_t version = 0;
-  uint8_t pad = 0;
-  uint16_t length = sizeof(RadiotapHeader);
-  uint32_t present = 0;
-  uint16_t channelFreqMhz = 0;  // bit 3
-  uint16_t channelFlags = 0;    // bit 3
-  int8_t antennaSignalDbm = 0;  // bit 5
-};
-#pragma pack(pop)
-
-constexpr uint32_t RADIOTAP_PRESENT_CHANNEL = 1u << 3;
-constexpr uint32_t RADIOTAP_PRESENT_DBM_ANTSIGNAL = 1u << 5;
-constexpr uint16_t RADIOTAP_CHANNEL_FLAG_2GHZ = 0x0080;
-
-uint16_t channelToFreqMhz(const uint8_t channel) {
-  // 2.4 GHz channel center frequencies, channels 1-13 (802.11).
-  if (channel >= 1 && channel <= 13) return static_cast<uint16_t>(2407 + channel * 5);
-  return 2412;  // fallback: channel 1
-}
 
 struct CapturedFrame {
   uint32_t tsSec = 0;
@@ -189,16 +160,11 @@ void FrameCaptureActivity::drainRing() {
 
     // Prefix a radiotap header (channel + RSSI) onto the frame so Wireshark
     // shows those columns; reused scratch, same reasoning as `frame` above.
-    static uint8_t record[sizeof(RadiotapHeader) + SNAPLEN];
-    RadiotapHeader radiotap{};
-    radiotap.present = RADIOTAP_PRESENT_CHANNEL | RADIOTAP_PRESENT_DBM_ANTSIGNAL;
-    radiotap.channelFreqMhz = channelToFreqMhz(frame.channel);
-    radiotap.channelFlags = RADIOTAP_CHANNEL_FLAG_2GHZ;
-    radiotap.antennaSignalDbm = frame.rssi;
-    memcpy(record, &radiotap, sizeof(radiotap));
-    memcpy(record + sizeof(radiotap), frame.data, frame.len);
+    static uint8_t record[radiotap::HEADER_LEN + SNAPLEN];
+    radiotap::build(record, frame.channel, frame.rssi);
+    memcpy(record + radiotap::HEADER_LEN, frame.data, frame.len);
 
-    if (!writer.writeRecord(record, sizeof(radiotap) + frame.len, sizeof(radiotap) + frame.origLen, frame.tsSec,
+    if (!writer.writeRecord(record, radiotap::HEADER_LEN + frame.len, radiotap::HEADER_LEN + frame.origLen, frame.tsSec,
                             frame.tsUsec)) {
       stopCapture(StopReason::WRITE_ERROR);
       return;
@@ -260,7 +226,7 @@ void FrameCaptureActivity::startCapture() {
   }
 
   capturePath = buildCapturePath();
-  if (!writer.open(capturePath, DLT_IEEE802_11_RADIOTAP, sizeof(RadiotapHeader) + SNAPLEN)) {
+  if (!writer.open(capturePath, radiotap::DLT_IEEE802_11_RADIOTAP, radiotap::HEADER_LEN + SNAPLEN)) {
     failToStart();
     return;
   }
