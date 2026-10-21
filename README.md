@@ -23,8 +23,9 @@ and a WiFi channel survey (roadmap 5a/5b) have since been built as well.
 | WiFi Scan (SSID, BSSID, channel, RSSI, security; Rescan) | done |
 | Channel Survey (beacon frame count per 2.4 GHz channel; Rescan) | done |
 | BLE Scan (name, address, address type, connectable, RSSI; Rescan) | done |
-| Frame Capture (management frames to pcap, Wireshark-ready) | done |
-| Capture logging to SD | done (Frame Capture; retention is manual, see below) |
+| Frame Capture (WiFi management frames to pcap, Wireshark-ready) | done |
+| BLE Capture (advertisements to pcap, Wireshark-ready) | done |
+| Capture logging to SD | done (both capture tools; retention is manual, see below) |
 
 Known limitations, both accepted for now (tracked in the project backlog):
 - the first WiFi Scan after boot keeps about 18 KB of heap held by the WiFi driver until the next reboot; it does
@@ -46,6 +47,19 @@ whichever comes first, in addition to a manual Stop.
 These files contain nearby devices' MAC addresses and any SSIDs they broadcast or probe for — handle and store them
 under the same authorized-use policy as the rest of this tool. **Nothing is auto-deleted**: captures accumulate on
 the SD card until you remove them yourself via File Transfer, Browse Files, or a card reader.
+
+### BLE Capture data handling
+
+BLE Capture (`Utilities → BLE Tools → BLE Capture`) writes to the same `/Palimpsest/captures/` directory as Frame
+Capture (as `ble-capture-<timestamp>.pcap`), with the same safety caps and retention policy above.
+
+One technical note worth knowing before reading a capture: NimBLE's host-level scan API has no raw promiscuous mode
+the way the WiFi radio does. Each record is a standard HCI **"LE Advertising Report"** event (Bluetooth Core Spec Vol
+4 Part E §7.7.65.2) rebuilt from NimBLE's already-decoded fields — the real address, RSSI, advertising data and event
+type for every advertisement seen, just reassembled into the wire format rather than tapped off the bus. Wireshark
+dissects it exactly as it would a real one; nothing shown is fabricated, only the bus framing around it is
+reconstructed. (NimBLE also deduplicates advertisements by address in its own cache; this tool periodically clears
+that cache during a capture so repeat advertisements keep showing up, rather than each device appearing only once.)
 
 ## Authorized use
 

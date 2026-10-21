@@ -21,14 +21,46 @@ namespace fui = freeink::ui;
 
 namespace {
 constexpr size_t RING_SLOTS = 64;
+constexpr size_t SNAPLEN = 512;  // longest frame body kept per record; longer frames are truncated
+
+constexpr uint32_t DLT_IEEE802_11_RADIOTAP = 127;  // http://www.tcpdump.org/linktypes.html
+
+// Minimal radiotap header carrying just Channel (bit 3) and dBm Antenna
+// Signal (bit 5). Field order follows increasing bit number and each field
+// sits at the offset its own size requires from the header start, per the
+// radiotap spec (https://www.radiotap.org/). Packed so sizeof() matches the
+// on-wire layout exactly -- natural struct alignment would pad this to a
+// 4-byte multiple and corrupt the format.
+#pragma pack(push, 1)
+struct RadiotapHeader {
+  uint8_t version = 0;
+  uint8_t pad = 0;
+  uint16_t length = sizeof(RadiotapHeader);
+  uint32_t present = 0;
+  uint16_t channelFreqMhz = 0;  // bit 3
+  uint16_t channelFlags = 0;    // bit 3
+  int8_t antennaSignalDbm = 0;  // bit 5
+};
+#pragma pack(pop)
+
+constexpr uint32_t RADIOTAP_PRESENT_CHANNEL = 1u << 3;
+constexpr uint32_t RADIOTAP_PRESENT_DBM_ANTSIGNAL = 1u << 5;
+constexpr uint16_t RADIOTAP_CHANNEL_FLAG_2GHZ = 0x0080;
+
+uint16_t channelToFreqMhz(const uint8_t channel) {
+  // 2.4 GHz channel center frequencies, channels 1-13 (802.11).
+  if (channel >= 1 && channel <= 13) return static_cast<uint16_t>(2407 + channel * 5);
+  return 2412;  // fallback: channel 1
+}
 
 struct CapturedFrame {
   uint32_t tsSec = 0;
   uint32_t tsUsec = 0;
   uint8_t channel = 0;
   int8_t rssi = 0;
-  uint16_t len = 0;
-  uint8_t data[PcapWriter::SNAPLEN];
+  uint16_t len = 0;      // bytes actually stored in data[] (<= SNAPLEN)
+  uint16_t origLen = 0;  // true length on the wire, pre-truncation
+  uint8_t data[SNAPLEN];
 };
 
 // Fixed-capacity SPSC ring in PSRAM: the promiscuous RX callback (producer,
@@ -85,7 +117,8 @@ void onPromiscuousPacket(void* buf, const wifi_promiscuous_pkt_type_t type) {
   slot.tsUsec = static_cast<uint32_t>(micros() % 1000000);
   slot.channel = pkt->rx_ctrl.channel;
   slot.rssi = pkt->rx_ctrl.rssi;
-  slot.len = sigLen > PcapWriter::SNAPLEN ? PcapWriter::SNAPLEN : sigLen;
+  slot.origLen = sigLen;
+  slot.len = sigLen > SNAPLEN ? SNAPLEN : sigLen;
   memcpy(slot.data, pkt->payload, slot.len);
   g_ringHead = next;
   portEXIT_CRITICAL(&g_ringMux);
@@ -154,7 +187,19 @@ void FrameCaptureActivity::drainRing() {
     portEXIT_CRITICAL(&g_ringMux);
     if (!got) break;
 
-    if (!writer.writeFrame(frame.data, frame.len, frame.channel, frame.rssi, frame.tsSec, frame.tsUsec)) {
+    // Prefix a radiotap header (channel + RSSI) onto the frame so Wireshark
+    // shows those columns; reused scratch, same reasoning as `frame` above.
+    static uint8_t record[sizeof(RadiotapHeader) + SNAPLEN];
+    RadiotapHeader radiotap{};
+    radiotap.present = RADIOTAP_PRESENT_CHANNEL | RADIOTAP_PRESENT_DBM_ANTSIGNAL;
+    radiotap.channelFreqMhz = channelToFreqMhz(frame.channel);
+    radiotap.channelFlags = RADIOTAP_CHANNEL_FLAG_2GHZ;
+    radiotap.antennaSignalDbm = frame.rssi;
+    memcpy(record, &radiotap, sizeof(radiotap));
+    memcpy(record + sizeof(radiotap), frame.data, frame.len);
+
+    if (!writer.writeRecord(record, sizeof(radiotap) + frame.len, sizeof(radiotap) + frame.origLen, frame.tsSec,
+                            frame.tsUsec)) {
       stopCapture(StopReason::WRITE_ERROR);
       return;
     }
@@ -172,7 +217,7 @@ std::string FrameCaptureActivity::buildCapturePath() const {
     snprintf(stamp, sizeof(stamp), "boot-%lu", static_cast<unsigned long>(millis()));
   }
   char path[96];
-  snprintf(path, sizeof(path), "%s/capture-%s.pcap", CAPTURE_DIR, stamp);
+  snprintf(path, sizeof(path), "%s/wifi-capture-%s.pcap", CAPTURE_DIR, stamp);
   return std::string(path);
 }
 
@@ -215,7 +260,7 @@ void FrameCaptureActivity::startCapture() {
   }
 
   capturePath = buildCapturePath();
-  if (!writer.open(capturePath)) {
+  if (!writer.open(capturePath, DLT_IEEE802_11_RADIOTAP, sizeof(RadiotapHeader) + SNAPLEN)) {
     failToStart();
     return;
   }

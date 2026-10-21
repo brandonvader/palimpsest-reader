@@ -6,28 +6,27 @@
 
 #include "HalStorage.h"
 
-// Writes 802.11 frames as a standard pcap file with a radiotap link-layer
-// header (channel + RSSI per frame), so a capture opens directly in
-// Wireshark. One writer instance = one capture session = one file, opened
-// once and written to sequentially.
+// Generic pcap file sink. Link-layer framing (radiotap+802.11, HCI H4, ...)
+// is each caller's concern -- this just writes the pcap global header once
+// and a correctly-sized record header per call, so every capture tool shares
+// one file-I/O implementation regardless of what it captures.
 class PcapWriter {
  public:
-  // Longest frame body kept per record; longer frames are truncated the same
-  // way a tcpdump/airodump snaplen would (pcap's incl_len/orig_len record the
-  // truncation, nothing is corrupted).
-  static constexpr size_t SNAPLEN = 512;
-
   // Opens path (its parent directory must already exist) and writes the pcap
-  // global header. False (and the file left closed) on any failure.
-  bool open(const std::string& path);
+  // global header for the given link-layer type (a DLT_* constant from
+  // http://www.tcpdump.org/linktypes.html) and snaplen. False (file left
+  // closed) on any failure.
+  bool open(const std::string& path, uint32_t linkType, uint32_t snaplen);
 
-  // Appends one frame: data/length is the raw 802.11 frame starting at the
-  // frame-control field. channel is the 802.11 channel (1-13) it was heard
-  // on; rssiDbm is the receive signal strength. tsSec/tsUsec are a
-  // caller-provided timestamp pair (monotonic is fine; Wireshark only needs
-  // per-file-consistent deltas). Returns false if the write failed (e.g. SD
-  // full) -- the caller should stop the capture.
-  bool writeFrame(const uint8_t* data, size_t length, uint8_t channel, int8_t rssiDbm, uint32_t tsSec, uint32_t tsUsec);
+  // Appends one record: data/length is the exact bytes to store (already
+  // built in whatever link-layer format open() declared, and already
+  // truncated to snaplen if needed). origLength is the untruncated length on
+  // the wire, for the record's orig_len field (equal to length when nothing
+  // was truncated). tsSec/tsUsec are a caller-provided timestamp pair
+  // (monotonic is fine; Wireshark only needs per-file-consistent deltas).
+  // Returns false if the write failed (e.g. SD full) -- the caller should
+  // stop the capture.
+  bool writeRecord(const uint8_t* data, size_t length, size_t origLength, uint32_t tsSec, uint32_t tsUsec);
 
   void close();
   bool isOpen() const { return file.isOpen(); }
