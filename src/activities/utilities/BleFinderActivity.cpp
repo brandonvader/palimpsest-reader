@@ -404,6 +404,8 @@ void BleFinderActivity::rebuildRows() {
     PendingAlert& a = alerts[alertCount];
     a = PendingAlert{};
     a.severity = SEVERITY_CONFIRMED;
+    a.rssi = spamSnapshot[i].rssi;
+    a.stale = (now - spamSnapshot[i].lastSeenMs) > STALE_THRESHOLD_MS;
     snprintf(a.label, sizeof(a.label), "%02X:%02X:%02X:%02X:%02X:%02X", spamSnapshot[i].addr[0],
              spamSnapshot[i].addr[1], spamSnapshot[i].addr[2], spamSnapshot[i].addr[3], spamSnapshot[i].addr[4],
              spamSnapshot[i].addr[5]);
@@ -417,6 +419,8 @@ void BleFinderActivity::rebuildRows() {
     PendingAlert& a = alerts[alertCount];
     a = PendingAlert{};
     a.severity = SEVERITY_NOTABLE;
+    a.rssi = flipperSnapshot[i].rssi;
+    a.stale = (now - flipperSnapshot[i].lastSeenMs) > STALE_THRESHOLD_MS;
     snprintf(a.label, sizeof(a.label), "%02X:%02X:%02X:%02X:%02X:%02X", flipperSnapshot[i].addr[0],
              flipperSnapshot[i].addr[1], flipperSnapshot[i].addr[2], flipperSnapshot[i].addr[3],
              flipperSnapshot[i].addr[4], flipperSnapshot[i].addr[5]);
@@ -430,6 +434,8 @@ void BleFinderActivity::rebuildRows() {
     PendingAlert& a = alerts[alertCount];
     a = PendingAlert{};
     a.severity = SEVERITY_NOTABLE;
+    a.rssi = trackerSnapshot[i].rssi;
+    a.stale = (now - trackerSnapshot[i].lastSeenMs) > STALE_THRESHOLD_MS;
     snprintf(a.label, sizeof(a.label), "%02X:%02X:%02X:%02X:%02X:%02X", trackerSnapshot[i].addr[0],
              trackerSnapshot[i].addr[1], trackerSnapshot[i].addr[2], trackerSnapshot[i].addr[3],
              trackerSnapshot[i].addr[4], trackerSnapshot[i].addr[5]);
@@ -439,8 +445,14 @@ void BleFinderActivity::rebuildRows() {
     alertCount++;
   }
 
-  std::stable_sort(alerts, alerts + alertCount,
-                   [](const PendingAlert& x, const PendingAlert& y) { return x.severity < y.severity; });
+  // Severity first, then fresh findings ahead of stale ones, then strongest
+  // signal first -- useful for fox-hunting. See AirspaceMonitorActivity's
+  // identical comparator for the full reasoning.
+  std::stable_sort(alerts, alerts + alertCount, [](const PendingAlert& x, const PendingAlert& y) {
+    if (x.severity != y.severity) return x.severity < y.severity;
+    if (x.stale != y.stale) return !x.stale;
+    return x.rssi > y.rssi;
+  });
 
   rowCount = 0;
   fui::ListItem& control = rows[rowCount];

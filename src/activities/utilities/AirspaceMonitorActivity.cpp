@@ -514,6 +514,8 @@ void AirspaceMonitorActivity::rebuildRows() {
     PendingAlert& a = alerts[alertCount];
     a = PendingAlert{};
     a.severity = SEVERITY_NOTABLE;
+    a.rssi = pwnRssi;
+    a.stale = (now - pwnLastSeenMs) > STALE_THRESHOLD_MS;
     snprintf(a.label, sizeof(a.label), "%s", tr(STR_PWNAGOTCHY_DETECTED));
     formatSignalSubtitle(a.subtitle, sizeof(a.subtitle), nullptr, pwnRssi, pwnLastSeenMs, now, STALE_THRESHOLD_MS);
     snprintf(a.value, sizeof(a.value), "%s", pwnSsid);
@@ -538,6 +540,8 @@ void AirspaceMonitorActivity::rebuildRows() {
     snprintf(a.label, sizeof(a.label), "%02X:%02X:%02X:%02X:%02X:%02X", karmaSnapshot[i].bssid[0],
              karmaSnapshot[i].bssid[1], karmaSnapshot[i].bssid[2], karmaSnapshot[i].bssid[3], karmaSnapshot[i].bssid[4],
              karmaSnapshot[i].bssid[5]);
+    a.rssi = karmaSnapshot[i].rssi;
+    a.stale = (now - karmaSnapshot[i].lastSeenMs) > STALE_THRESHOLD_MS;
     const char* vendor = OuiVendors::lookup(karmaSnapshot[i].bssid);
     formatSignalSubtitle(a.subtitle, sizeof(a.subtitle), vendor ? vendor : tr(STR_UNKNOWN_VENDOR),
                          karmaSnapshot[i].rssi, karmaSnapshot[i].lastSeenMs, now, STALE_THRESHOLD_MS);
@@ -545,8 +549,8 @@ void AirspaceMonitorActivity::rebuildRows() {
     alertCount++;
   }
 
-  std::sort(deauthSnapshot, deauthSnapshot + deauthCount,
-            [](const AirspaceDeauthSource& x, const AirspaceDeauthSource& y) { return x.count > y.count; });
+  // No pre-sort needed here: the combined stable_sort below (severity, stale,
+  // signal) is what actually determines display order.
   for (int i = 0; i < deauthCount && alertCount < MAX_ALERTS; i++) {
     PendingAlert& a = alerts[alertCount];
     a = PendingAlert{};
@@ -554,6 +558,8 @@ void AirspaceMonitorActivity::rebuildRows() {
     snprintf(a.label, sizeof(a.label), "%02X:%02X:%02X:%02X:%02X:%02X", deauthSnapshot[i].mac[0],
              deauthSnapshot[i].mac[1], deauthSnapshot[i].mac[2], deauthSnapshot[i].mac[3], deauthSnapshot[i].mac[4],
              deauthSnapshot[i].mac[5]);
+    a.rssi = deauthSnapshot[i].rssi;
+    a.stale = (now - deauthSnapshot[i].lastSeenMs) > STALE_THRESHOLD_MS;
     const char* vendor = OuiVendors::lookup(deauthSnapshot[i].mac);
     formatSignalSubtitle(a.subtitle, sizeof(a.subtitle), vendor ? vendor : tr(STR_UNKNOWN_VENDOR),
                          deauthSnapshot[i].rssi, deauthSnapshot[i].lastSeenMs, now, STALE_THRESHOLD_MS);
@@ -565,10 +571,17 @@ void AirspaceMonitorActivity::rebuildRows() {
     alertCount++;
   }
 
-  // stable_sort: same-severity rows keep their relative order across
-  // refreshes instead of reshuffling for no reason every 5 seconds.
-  std::stable_sort(alerts, alerts + alertCount,
-                   [](const PendingAlert& x, const PendingAlert& y) { return x.severity < y.severity; });
+  // Severity first (most severe tier at the top), then fresh findings ahead
+  // of stale ones (a frozen strong number from a finding that's gone should
+  // never outrank a weaker but currently-live one), then strongest signal
+  // first within that -- useful for fox-hunting. stable_sort: rows tied on
+  // all three keep their relative order across refreshes instead of
+  // reshuffling for no reason every 5 seconds.
+  std::stable_sort(alerts, alerts + alertCount, [](const PendingAlert& x, const PendingAlert& y) {
+    if (x.severity != y.severity) return x.severity < y.severity;
+    if (x.stale != y.stale) return !x.stale;
+    return x.rssi > y.rssi;
+  });
 
   rowCount = 0;
   fui::ListItem& control = rows[rowCount];

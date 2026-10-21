@@ -104,12 +104,19 @@ class AirspaceMonitorActivity final : public UiListActivity {
   enum Severity : int { SEVERITY_CONFIRMED = 0, SEVERITY_NOTABLE = 1, SEVERITY_INFO = 2 };
 
   // One row's worth of alert content, built fresh each rebuildRows() call
-  // from all four detectors' tracking tables, then stable_sort()ed by
-  // severity so repeated refreshes don't needlessly reorder same-tier rows
-  // (that would flicker/waste partial refreshes for no reason). Owns its own
-  // text so ListItem can point directly into the final sorted array.
+  // from all four detectors' tracking tables, then sorted by (severity,
+  // stale, signal descending) so the strongest/freshest finding in each tier
+  // leads -- useful for fox-hunting -- while same-key rows keep their
+  // relative order across refreshes (stable_sort) so they don't needlessly
+  // reorder and waste partial refreshes. Owns its own text so ListItem can
+  // point directly into the final sorted array.
   struct PendingAlert {
     int severity = SEVERITY_INFO;
+    // Evil-twin rows have no single address to track signal for (see the
+    // class comment); they keep the sentinel so they sort behind every
+    // same-severity finding that does report a real signal.
+    int8_t rssi = -128;
+    bool stale = false;
     char label[24] = {};
     char subtitle[32] = {};  // vendor + signal ("Espressif  -52 dBm ||||") or "Out of range"
     char value[40] = {};

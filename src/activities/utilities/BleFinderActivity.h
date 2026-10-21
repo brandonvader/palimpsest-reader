@@ -74,6 +74,8 @@ class BleFinderActivity final : public UiListActivity {
 
   struct PendingAlert {
     int severity = SEVERITY_NOTABLE;
+    int8_t rssi = -128;
+    bool stale = false;
     char label[20] = {};
     char subtitle[18] = {};  // signal ("-52 dBm ||||") or "Out of range"
     char value[40] = {};
