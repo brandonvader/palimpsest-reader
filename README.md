@@ -25,8 +25,15 @@ and a WiFi channel survey (roadmap 5a/5b) have since been built as well.
 | BLE Scan (name, address, address type, connectable, RSSI; Rescan) | done |
 | Frame Capture (WiFi management frames to pcap, Wireshark-ready) | done |
 | BLE Capture (advertisements to pcap, Wireshark-ready) | done |
-| Airspace Monitor (deauth/Pwnagotchy/evil twin/Karma detection) | done |
+| Airspace Monitor (deauth/Pwnagotchy/evil twin/Karma detection) | done — **not yet tested on a touch device, see note below** |
+| Device Finder (Flipper Zero, Find My tracker, BLE spam detection) | done — **not yet tested on a touch device, see note below** |
 | Capture logging to SD | done (all three capture-capable tools; retention is manual, see below) |
+
+**Testing note:** Airspace Monitor and Device Finder were built, flashed, and verified to boot cleanly, but were never
+exercised through the touchscreen (built in a session with no one available to test interactively). Evil twin and
+Karma detection are also untested against live conflicting APs — there was no way to synthesize that traffic. Treat
+both tools as "should work" rather than "confirmed working" until someone has opened each screen, started/stopped a
+session, and seen real rows populate.
 
 Known limitations, both accepted for now (tracked in the project backlog):
 - the first WiFi Scan after boot keeps about 18 KB of heap held by the WiFi driver until the next reboot; it does
@@ -89,6 +96,24 @@ severity-sorted list.
 Once any of the above escalates, its subsequent frames are saved to one pcap file per session
 (`/Palimpsest/captures/airspace-<timestamp>.pcap`, same radiotap format and safety caps as Frame Capture) for offline
 forensics; a session with nothing escalating writes no extra file at all.
+
+### Device Finder
+
+Device Finder (`Utilities → BLE Tools → Device Finder`) is a continuous BLE scan (like BLE Capture, periodically
+clearing NimBLE's own dedup cache so repeat advertisements keep registering) that flags three kinds of device:
+
+- **Flipper Zero.** Any of three independent signals: its registered MAC vendor prefix (Flipper Devices Inc), a
+  device name starting with "Flipper" (the default, unless renamed), or its colorway GATT service UUID. Adapted from
+  the same signals the [Wall-of-Flippers](https://github.com/K3YOMI/Wall-of-Flippers) project uses (MIT licensed,
+  reimplemented independently here).
+- **Find My Tracker.** Apple manufacturer data carrying the fixed Find My type byte (0x12), distinct from ordinary
+  AirPods/Continuity traffic. Labelled "Find My Tracker" rather than "AirTag": any Find My network accessory, or even
+  a lost iPhone, broadcasts this.
+- **BLE spam.** Manufacturer-data and service-data byte patterns matching known forged-popup payloads (fake Apple/
+  Samsung/Windows pairing popups, plus the standard HID and Fast Pair service UUIDs), also adapted from
+  Wall-of-Flippers. A single match is not shown — ordinary earbuds legitimately send some of these during normal
+  pairing-mode chatter — only an address crossing a cumulative threshold (25 matches, Wall-of-Flippers' own sourced
+  default) is flagged, and this is not Flipper-specific: any BLE spam tool trips it.
 
 ## Authorized use
 
