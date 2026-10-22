@@ -12,11 +12,13 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 
 #include "MappedInputManager.h"
 #include "OuiVendors.h"
 #include "Radiotap.h"
 #include "SignalStrength.h"
+#include "WifiHuntingActivity.h"
 #include "activities/RenderLock.h"
 #include "components/UITheme.h"
 
@@ -78,6 +80,7 @@ bool g_pwnagotchySeen = false;
 char g_pwnagotchySsid[33] = {};
 int8_t g_pwnagotchyRssi = 0;
 uint32_t g_pwnagotchyLastSeenMs = 0;
+uint8_t g_pwnagotchyChannel = 0;
 AirspaceSsidSighting g_ssidSightings[AirspaceMonitorActivity::MAX_TRACKED_SSIDS];
 int g_ssidCount = 0;
 AirspaceKarmaCandidate g_karmaCandidates[AirspaceMonitorActivity::MAX_KARMA_CANDIDATES];
@@ -94,12 +97,13 @@ volatile size_t g_forensicsTail = 0;
 // table fills rather than growing unbounded. Returns the source's count
 // after this frame (0 if the table was full and this is a brand new,
 // untracked source -- naturally below any threshold, so callers skip it).
-uint32_t recordDeauthSource(const uint8_t* mac, const int8_t rssi) {
+uint32_t recordDeauthSource(const uint8_t* mac, const int8_t rssi, const uint8_t channel) {
   const uint32_t now = millis();
   for (int i = 0; i < g_deauthSourceCount; i++) {
     if (memcmp(g_deauthSources[i].mac, mac, 6) == 0) {
       g_deauthSources[i].rssi = rssi;
       g_deauthSources[i].lastSeenMs = now;
+      g_deauthSources[i].channel = channel;
       return ++g_deauthSources[i].count;
     }
   }
@@ -109,6 +113,7 @@ uint32_t recordDeauthSource(const uint8_t* mac, const int8_t rssi) {
     entry.count = 1;
     entry.rssi = rssi;
     entry.lastSeenMs = now;
+    entry.channel = channel;
     return 1;
   }
   return 0;
@@ -158,7 +163,7 @@ bool recordSsidSighting(const char* ssid, const uint8_t* bssid, const bool priva
 // Caller holds g_mux. Tracks the set of distinct SSIDs each address has sent
 // probe responses for. Returns the address's distinct-SSID count after this
 // response.
-int recordKarmaResponse(const uint8_t* bssid, const char* ssid, const int8_t rssi) {
+int recordKarmaResponse(const uint8_t* bssid, const char* ssid, const int8_t rssi, const uint8_t channel) {
   AirspaceKarmaCandidate* entry = nullptr;
   for (int i = 0; i < g_karmaCount; i++) {
     if (memcmp(g_karmaCandidates[i].bssid, bssid, 6) == 0) {
@@ -173,6 +178,7 @@ int recordKarmaResponse(const uint8_t* bssid, const char* ssid, const int8_t rss
   }
   entry->rssi = rssi;
   entry->lastSeenMs = millis();
+  entry->channel = channel;
   for (int i = 0; i < entry->ssidCount; i++) {
     if (strcmp(entry->ssids[i], ssid) == 0) return entry->ssidCount;
   }
@@ -263,7 +269,7 @@ void onPromiscuousPacket(void* buf, const wifi_promiscuous_pkt_type_t type) {
 
   if (subtype == SUBTYPE_DEAUTH || subtype == SUBTYPE_DISASSOC) {
     portENTER_CRITICAL(&g_mux);
-    const uint32_t count = recordDeauthSource(transmitter, pkt->rx_ctrl.rssi);
+    const uint32_t count = recordDeauthSource(transmitter, pkt->rx_ctrl.rssi, pkt->rx_ctrl.channel);
     if (count >= AirspaceMonitorActivity::DEAUTHER_THRESHOLD) {
       enqueueForensicFrame(pkt->payload, len, len, pkt->rx_ctrl.channel, pkt->rx_ctrl.rssi);
     }
@@ -280,6 +286,7 @@ void onPromiscuousPacket(void* buf, const wifi_promiscuous_pkt_type_t type) {
         strlcpy(g_pwnagotchySsid, ssid, sizeof(g_pwnagotchySsid));
         g_pwnagotchyRssi = pkt->rx_ctrl.rssi;
         g_pwnagotchyLastSeenMs = millis();
+        g_pwnagotchyChannel = pkt->rx_ctrl.channel;
         portEXIT_CRITICAL(&g_mux);
       }
       return;
@@ -299,7 +306,7 @@ void onPromiscuousPacket(void* buf, const wifi_promiscuous_pkt_type_t type) {
     char ssid[33];
     if (!extractSsid(pkt->payload, len, ssid, sizeof(ssid)) || ssid[0] == '\0') return;
     portENTER_CRITICAL(&g_mux);
-    const int distinctSsids = recordKarmaResponse(transmitter, ssid, pkt->rx_ctrl.rssi);
+    const int distinctSsids = recordKarmaResponse(transmitter, ssid, pkt->rx_ctrl.rssi, pkt->rx_ctrl.channel);
     if (distinctSsids >= AirspaceMonitorActivity::KARMA_SSID_THRESHOLD) {
       enqueueForensicFrame(pkt->payload, len, len, pkt->rx_ctrl.channel, pkt->rx_ctrl.rssi);
     }
@@ -322,7 +329,11 @@ void AirspaceMonitorActivity::onEnter() {
 }
 
 void AirspaceMonitorActivity::onExit() {
-  if (state == State::MONITORING) stopMonitoring();
+  // Checks promiscuousOn, not `state == MONITORING`: pauseForHunt() (used for
+  // a "Hunt this" row action) moves to STOPPED without releasing the radio,
+  // so a user who backs out without resuming monitoring first would
+  // otherwise leave promiscuous mode on and WiFi.mode() unrestored.
+  if (promiscuousOn) stopMonitoring(/*forTeardown=*/true);
   UiListActivity::onExit();
 }
 
@@ -405,7 +416,7 @@ void AirspaceMonitorActivity::startMonitoring() {
   requestUpdate();
 }
 
-void AirspaceMonitorActivity::stopMonitoring() {
+void AirspaceMonitorActivity::stopMonitoring(const bool forTeardown) {
   g_monitoring = false;
   if (promiscuousOn) {
     esp_wifi_set_promiscuous(false);
@@ -422,6 +433,12 @@ void AirspaceMonitorActivity::stopMonitoring() {
   }
   forensicsRingFree();
 
+  // onExit() (forTeardown) runs while ActivityManager already holds the
+  // render lock -- see WifiHuntingActivity::stopHunting()'s `forTeardown`
+  // comment for the full explanation. The activity is also about to be
+  // destroyed, so there is nothing left to render anyway.
+  if (forTeardown) return;
+
   RenderLock lock(*this);
   state = State::STOPPED;
   if (forensicFrames > 0) {
@@ -429,6 +446,24 @@ void AirspaceMonitorActivity::stopMonitoring() {
   } else {
     snprintf(summary, sizeof(summary), "%s", tr(STR_RESCAN));
   }
+  rebuildRows();
+  requestUpdate();
+}
+
+void AirspaceMonitorActivity::pauseForHunt() {
+  // Deliberately leave esp_wifi_set_promiscuous()/esp_wifi_set_promiscuous_rx_cb()/
+  // WiFi.mode() untouched -- see the header comment. WifiHuntingActivity
+  // overwrites the promiscuous callback with its own (promiscuous mode stays
+  // enabled the whole time) and, because it reads WiFi's CURRENT mode as its
+  // own "prior" mode to restore, inherits whatever this screen already left
+  // WiFi in rather than tripping a risky mode-to-OFF transition on its own
+  // Stop.
+  g_monitoring = false;
+  drainForensicsRing();  // flush whatever's pending; the file (if open) stays open for when monitoring truly stops
+
+  RenderLock lock(*this);
+  state = State::STOPPED;
+  snprintf(summary, sizeof(summary), "%s", tr(STR_RESCAN));
   rebuildRows();
   requestUpdate();
 }
@@ -492,6 +527,7 @@ void AirspaceMonitorActivity::rebuildRows() {
   char pwnSsid[sizeof(g_pwnagotchySsid)];
   int8_t pwnRssi;
   uint32_t pwnLastSeenMs;
+  uint8_t pwnChannel;
   int ssidCount;
   int karmaCount;
   portENTER_CRITICAL(&g_mux);
@@ -501,6 +537,7 @@ void AirspaceMonitorActivity::rebuildRows() {
   strlcpy(pwnSsid, g_pwnagotchySsid, sizeof(pwnSsid));
   pwnRssi = g_pwnagotchyRssi;
   pwnLastSeenMs = g_pwnagotchyLastSeenMs;
+  pwnChannel = g_pwnagotchyChannel;
   ssidCount = g_ssidCount;
   memcpy(ssidSnapshot, g_ssidSightings, sizeof(AirspaceSsidSighting) * ssidCount);
   karmaCount = g_karmaCount;
@@ -519,6 +556,10 @@ void AirspaceMonitorActivity::rebuildRows() {
     snprintf(a.label, sizeof(a.label), "%s", tr(STR_PWNAGOTCHY_DETECTED));
     formatSignalSubtitle(a.subtitle, sizeof(a.subtitle), nullptr, pwnRssi, pwnLastSeenMs, now, STALE_THRESHOLD_MS);
     snprintf(a.value, sizeof(a.value), "%s", pwnSsid);
+    a.hasAddr = true;
+    memcpy(a.addr, PWNAGOTCHY_MAC, 6);
+    a.channel = pwnChannel;
+    snprintf(a.huntLabel, sizeof(a.huntLabel), "%s", tr(STR_PWNAGOTCHY_DETECTED));
     alertCount++;
   }
 
@@ -546,6 +587,9 @@ void AirspaceMonitorActivity::rebuildRows() {
     formatSignalSubtitle(a.subtitle, sizeof(a.subtitle), vendor ? vendor : tr(STR_UNKNOWN_VENDOR),
                          karmaSnapshot[i].rssi, karmaSnapshot[i].lastSeenMs, now, STALE_THRESHOLD_MS);
     snprintf(a.value, sizeof(a.value), tr(STR_KARMA_AP), static_cast<unsigned>(karmaSnapshot[i].ssidCount));
+    a.hasAddr = true;
+    memcpy(a.addr, karmaSnapshot[i].bssid, 6);
+    a.channel = karmaSnapshot[i].channel;
     alertCount++;
   }
 
@@ -568,6 +612,9 @@ void AirspaceMonitorActivity::rebuildRows() {
     } else {
       snprintf(a.value, sizeof(a.value), "%u", static_cast<unsigned>(deauthSnapshot[i].count));
     }
+    a.hasAddr = true;
+    memcpy(a.addr, deauthSnapshot[i].mac, 6);
+    a.channel = deauthSnapshot[i].channel;
     alertCount++;
   }
 
@@ -604,12 +651,31 @@ void AirspaceMonitorActivity::rebuildRows() {
 }
 
 void AirspaceMonitorActivity::activateIndex(const int index) {
-  if (index != 0) return;
-  if (state == State::MONITORING) {
-    stopMonitoring();
-  } else {
-    startMonitoring();
+  if (index == 0) {
+    if (state == State::MONITORING) {
+      stopMonitoring();
+    } else {
+      startMonitoring();
+    }
+    return;
   }
+
+  const int alertIndex = index - 1;
+  if (alertIndex < 0 || alertIndex >= rowCount - 1) return;
+  const PendingAlert& alert = alerts[alertIndex];
+  if (!alert.hasAddr) return;  // evil-twin rows have no single device to hunt
+  app.clearTapFlash();
+  // Pause monitoring before handing the radio to WifiHuntingActivity: this
+  // screen stays on the activity stack while the push is active, and its own
+  // channel sweep/recording must not keep running underneath. pauseForHunt()
+  // (not stopMonitoring()) deliberately leaves the radio mode alone -- see
+  // its header comment for why -- and never clears the tracking tables
+  // (only startMonitoring() does), so Back simply returns to a paused
+  // Airspace Monitor with every finding still listed.
+  if (state == State::MONITORING) pauseForHunt();
+  startActivityForResult(std::make_unique<WifiHuntingActivity>(renderer, mappedInput, alert.addr, alert.channel,
+                                                               alert.huntLabel[0] ? alert.huntLabel : nullptr),
+                         [](const ActivityResult&) {});
 }
 
 void AirspaceMonitorActivity::buildScreen(UiScreen& screen) {

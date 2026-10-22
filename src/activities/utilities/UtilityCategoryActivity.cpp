@@ -8,10 +8,12 @@
 #include "AirspaceMonitorActivity.h"
 #include "BleCaptureActivity.h"
 #include "BleFinderActivity.h"
+#include "BleHuntingActivity.h"
 #include "BleScanActivity.h"
 #include "ChannelSurveyActivity.h"
 #include "FrameCaptureActivity.h"
 #include "MappedInputManager.h"
+#include "WifiHuntingActivity.h"
 #include "WifiScanActivity.h"
 #include "components/UITheme.h"
 
@@ -21,7 +23,7 @@ UtilityCategoryActivity::UtilityCategoryActivity(GfxRenderer& renderer, MappedIn
                                                  const UtilityCategory category)
     : UiListActivity("UtilitiesTools", renderer, mappedInput), category(category) {}
 
-int UtilityCategoryActivity::toolCount() const { return category == UtilityCategory::WIFI ? 4 : 3; }
+int UtilityCategoryActivity::toolCount() const { return category == UtilityCategory::WIFI ? 5 : 4; }
 
 const char* UtilityCategoryActivity::headerTitle() const {
   return category == UtilityCategory::WIFI ? tr(STR_UTILITIES_WIFI) : tr(STR_UTILITIES_BLE);
@@ -40,10 +42,12 @@ void UtilityCategoryActivity::buildScreen(UiScreen& screen) {
     rowItems_[1].label = tr(STR_UTILITIES_CHANNEL_SURVEY);
     rowItems_[2].label = tr(STR_UTILITIES_FRAME_CAPTURE);
     rowItems_[3].label = tr(STR_UTILITIES_AIRSPACE_MONITOR);
+    rowItems_[4].label = tr(STR_UTILITIES_WIFI_HUNTING);
   } else {
     rowItems_[0].label = tr(STR_UTILITIES_BLE_SCAN);
     rowItems_[1].label = tr(STR_UTILITIES_BLE_CAPTURE);
     rowItems_[2].label = tr(STR_UTILITIES_BLE_FINDER);
+    rowItems_[3].label = tr(STR_UTILITIES_BLE_HUNTING);
   }
   for (int i = 0; i < listCount(); i++) {
     rowItems_[i].actionValue = static_cast<int16_t>(i);
@@ -72,6 +76,8 @@ void UtilityCategoryActivity::activateIndex(const int index) {
       tool = makeUniqueNoThrow<FrameCaptureActivity>(renderer, mappedInput);
     } else if (index == 3) {
       tool = makeUniqueNoThrow<AirspaceMonitorActivity>(renderer, mappedInput);
+    } else if (index == 4) {
+      tool = makeUniqueNoThrow<WifiHuntingActivity>(renderer, mappedInput);
     }
   } else if (category == UtilityCategory::BLE) {
     if (index == 0) {
@@ -80,6 +86,8 @@ void UtilityCategoryActivity::activateIndex(const int index) {
       tool = makeUniqueNoThrow<BleCaptureActivity>(renderer, mappedInput);
     } else if (index == 2) {
       tool = makeUniqueNoThrow<BleFinderActivity>(renderer, mappedInput);
+    } else if (index == 3) {
+      tool = makeUniqueNoThrow<BleHuntingActivity>(renderer, mappedInput);
     }
   }
   if (!tool) {

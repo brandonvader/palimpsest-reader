@@ -33,6 +33,7 @@ class BleScanActivity final : public UiListActivity {
     char detail[48];  // "AA:BB:CC:DD:EE:FF  rnd  conn"
     char signal[16];  // "-62 dBm"
     int8_t rssi;
+    uint8_t addr[6];  // for "Hunt this" (BleHuntingActivity's preset target)
   };
 
   int listCount() const override { return 1 + static_cast<int>(devices.size()); }
@@ -45,6 +46,13 @@ class BleScanActivity final : public UiListActivity {
   void finishWithMessage(const char* message);
   // Callers hold the render lock.
   void rebuildRows();
+  // NimBLE stack acquire/release, factored out of onEnter()/onExit() so "Hunt
+  // this" can release the stack before handing it to BleHuntingActivity (two
+  // owners can't both hold it) and reacquire it when that pop returns here --
+  // without disturbing the already-shown results list. Returns false on
+  // failure (OOM or NimBLE init failure).
+  bool acquireBle();
+  void releaseBle();
 
   State state = State::SCANNING;
   bool stackUp = false;

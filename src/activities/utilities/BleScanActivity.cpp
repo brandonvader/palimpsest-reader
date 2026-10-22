@@ -8,7 +8,10 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
+#include <memory>
 
+#include "BleHuntingActivity.h"
 #include "MappedInputManager.h"
 #include "activities/RenderLock.h"
 #include "components/UITheme.h"
@@ -56,20 +59,33 @@ void BleScanActivity::onEnter() {
 
   devices.reserve(MAX_DEVICES);
 
-  // Acquire the BLE stack.
+  if (!acquireBle()) {
+    finishWithMessage(tr(STR_BLE_UNAVAILABLE));
+    return;
+  }
+  startScan();
+}
+
+void BleScanActivity::onExit() {
+  UiListActivity::onExit();
+  releaseBle();
+  LOG_DBG("BSCAN", "Free heap at exit: %d bytes", ESP.getFreeHeap());
+}
+
+bool BleScanActivity::acquireBle() {
   stackUp = NimBLEDevice::init("");
   if (!stackUp) {
     LOG_ERR("BSCAN", "NimBLE init failed");
-    finishWithMessage(tr(STR_BLE_UNAVAILABLE));
-    return;
+    return false;
   }
 
   auto* scan = NimBLEDevice::getScan();
   callbacks = makeUniqueNoThrow<ScanEndCallbacks>(*this);
   if (!callbacks) {
     LOG_ERR("BSCAN", "OOM: scan callbacks");
-    finishWithMessage(tr(STR_BLE_UNAVAILABLE));
-    return;
+    NimBLEDevice::deinit(true);
+    stackUp = false;
+    return false;
   }
   // wantDuplicates: scan responses (names) arrive as a second PDU from the same address.
   scan->setScanCallbacks(callbacks.get(), true);
@@ -80,24 +96,19 @@ void BleScanActivity::onEnter() {
 #if CONFIG_BT_NIMBLE_EXT_ADV
   scan->setPhy(NimBLEScan::SCAN_ALL);
 #endif
-
-  startScan();
+  return true;
 }
 
-void BleScanActivity::onExit() {
-  UiListActivity::onExit();
-
-  // Release the BLE stack: stop any scan in flight, drop results, deinit.
-  if (stackUp) {
-    auto* scan = NimBLEDevice::getScan();
-    if (scan->isScanning()) scan->stop();
-    scan->clearResults();
-    scan->setScanCallbacks(nullptr);
-    NimBLEDevice::deinit(true);
-    stackUp = false;
-    callbacks.reset();
-  }
-  LOG_DBG("BSCAN", "Free heap at exit: %d bytes", ESP.getFreeHeap());
+void BleScanActivity::releaseBle() {
+  // Stop any scan in flight, drop results, deinit.
+  if (!stackUp) return;
+  auto* scan = NimBLEDevice::getScan();
+  if (scan->isScanning()) scan->stop();
+  scan->clearResults();
+  scan->setScanCallbacks(nullptr);
+  NimBLEDevice::deinit(true);
+  stackUp = false;
+  callbacks.reset();
 }
 
 void BleScanActivity::loop() {
@@ -139,6 +150,7 @@ void BleScanActivity::collectResults() {
       if (dev->haveName()) strlcpy(d.name, dev->getName().c_str(), sizeof(d.name));
       snprintf(d.detail, sizeof(d.detail), "%s  %s%s", dev->getAddress().toString().c_str(),
                addressTypeName(dev->getAddressType()), dev->isConnectable() ? "  conn" : "");
+      memcpy(d.addr, dev->getAddress().getVal(), 6);
       d.rssi = dev->getRSSI();
       snprintf(d.signal, sizeof(d.signal), "%d dBm", static_cast<int>(d.rssi));
       devices.push_back(d);
@@ -189,7 +201,28 @@ void BleScanActivity::rebuildRows() {
 }
 
 void BleScanActivity::activateIndex(const int index) {
-  if (index == 0 && state == State::DONE && stackUp) startScan();
+  if (index == 0) {
+    if (state == State::DONE && stackUp) startScan();
+    return;
+  }
+  if (state != State::DONE) return;
+  const size_t devIndex = static_cast<size_t>(index - 1);
+  if (devIndex >= devices.size()) return;
+  // Tap a row to hunt that device: launch straight into BleHuntingActivity
+  // with its address preset.
+  const Device& dev = devices[devIndex];
+  app.clearTapFlash();
+  // Hand the BLE stack to BleHuntingActivity WITHOUT deiniting it first:
+  // NimBLEDevice::deinit() has an unbounded internal wait (see
+  // BleHuntingActivity's class comment) that a deinit-then-reinit churn
+  // around this push would needlessly risk. BleHuntingActivity borrows the
+  // (already-ended) scan's callback slot instead and never touches init/
+  // deinit for a preset target. Re-register our own callback and scan params
+  // on return (acquireBle() no-ops the init() call since the stack was never
+  // released) without touching the already-shown results list.
+  startActivityForResult(
+      std::make_unique<BleHuntingActivity>(renderer, mappedInput, dev.addr, dev.name[0] ? dev.name : nullptr),
+      [this](const ActivityResult&) { acquireBle(); });
 }
 
 void BleScanActivity::buildScreen(UiScreen& screen) {

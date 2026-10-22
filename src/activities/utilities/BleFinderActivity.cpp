@@ -8,7 +8,9 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 
+#include "BleHuntingActivity.h"
 #include "MappedInputManager.h"
 #include "SignalStrength.h"
 #include "activities/RenderLock.h"
@@ -279,7 +281,7 @@ void BleFinderActivity::onEnter() {
 }
 
 void BleFinderActivity::onExit() {
-  if (state == State::SCANNING) stopScanning();
+  if (state == State::SCANNING) stopScanning(/*forTeardown=*/true);
   UiListActivity::onExit();
 }
 
@@ -350,7 +352,7 @@ void BleFinderActivity::startScanning() {
   requestUpdate();
 }
 
-void BleFinderActivity::stopScanning() {
+void BleFinderActivity::stopScanning(const bool forTeardown) {
   if (stackUp) {
     // Wait for onScanEnd before deinit: stop() only requests cancellation and
     // returns before the host task has processed it, and deinit() racing
@@ -377,6 +379,12 @@ void BleFinderActivity::stopScanning() {
     NimBLEDevice::deinit(true);
     stackUp = false;
   }
+
+  // onExit() (forTeardown) runs while ActivityManager already holds the
+  // render lock -- see WifiHuntingActivity::stopHunting()'s `forTeardown`
+  // comment for the full explanation. The activity is also about to be
+  // destroyed, so there is nothing left to render anyway.
+  if (forTeardown) return;
 
   RenderLock lock(*this);
   state = State::STOPPED;
@@ -412,6 +420,7 @@ void BleFinderActivity::rebuildRows() {
     formatSignalSubtitle(a.subtitle, sizeof(a.subtitle), nullptr, spamSnapshot[i].rssi, spamSnapshot[i].lastSeenMs, now,
                          STALE_THRESHOLD_MS);
     snprintf(a.value, sizeof(a.value), tr(STR_BLE_SPAM_DETECTED), spamSnapshot[i].lastType);
+    memcpy(a.addr, spamSnapshot[i].addr, 6);
     alertCount++;
   }
 
@@ -427,6 +436,7 @@ void BleFinderActivity::rebuildRows() {
     formatSignalSubtitle(a.subtitle, sizeof(a.subtitle), nullptr, flipperSnapshot[i].rssi,
                          flipperSnapshot[i].lastSeenMs, now, STALE_THRESHOLD_MS);
     snprintf(a.value, sizeof(a.value), "%s", tr(STR_FLIPPER_DETECTED));
+    memcpy(a.addr, flipperSnapshot[i].addr, 6);
     alertCount++;
   }
 
@@ -442,6 +452,7 @@ void BleFinderActivity::rebuildRows() {
     formatSignalSubtitle(a.subtitle, sizeof(a.subtitle), nullptr, trackerSnapshot[i].rssi,
                          trackerSnapshot[i].lastSeenMs, now, STALE_THRESHOLD_MS);
     snprintf(a.value, sizeof(a.value), "%s", tr(STR_TRACKER_DETECTED));
+    memcpy(a.addr, trackerSnapshot[i].addr, 6);
     alertCount++;
   }
 
@@ -475,12 +486,31 @@ void BleFinderActivity::rebuildRows() {
 }
 
 void BleFinderActivity::activateIndex(const int index) {
-  if (index != 0) return;
-  if (state == State::SCANNING) {
-    stopScanning();
-  } else {
-    startScanning();
+  if (index == 0) {
+    if (state == State::SCANNING) {
+      stopScanning();
+    } else {
+      startScanning();
+    }
+    return;
   }
+
+  const int alertIndex = index - 1;
+  if (alertIndex < 0 || alertIndex >= rowCount - 1) return;
+  const PendingAlert& alert = alerts[alertIndex];
+  app.clearTapFlash();
+  // Hand the BLE stack to BleHuntingActivity WITHOUT stopping/deiniting it:
+  // NimBLEDevice::deinit() has an unbounded internal wait (see
+  // BleHuntingActivity's class comment) that a deinit-then-reinit churn
+  // around this push would needlessly risk. BleHuntingActivity just borrows
+  // the already-running scan's callback slot for a preset target and never
+  // touches init/deinit, so the scan (and `state`) stay exactly as they were;
+  // findings simply stop accumulating while a hunt is in progress. Re-register
+  // our own callback on return.
+  startActivityForResult(std::make_unique<BleHuntingActivity>(renderer, mappedInput, alert.addr, nullptr),
+                         [this](const ActivityResult&) {
+                           if (state == State::SCANNING) NimBLEDevice::getScan()->setScanCallbacks(&g_callbacks, true);
+                         });
 }
 
 void BleFinderActivity::buildScreen(UiScreen& screen) {

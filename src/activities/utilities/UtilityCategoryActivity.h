@@ -19,6 +19,6 @@ class UtilityCategoryActivity final : public UiListActivity {
   const char* headerTitle() const override;
 
   const UtilityCategory category;
-  static constexpr int MAX_TOOLS = 4;
+  static constexpr int MAX_TOOLS = 5;
   freeink::ui::ListItem rowItems_[MAX_TOOLS]{};
 };

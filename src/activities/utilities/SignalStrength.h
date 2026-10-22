@@ -10,11 +10,26 @@
 // same way everywhere in the app. Not shared code with that function (it is
 // private to the reader's own network picker, outside Utilities), just the
 // same thresholds and glyphs reimplemented here for Utilities' own tools.
+// 1 (weak) .. 4 (excellent); shared by the bar glyph and the Hunting gauge so
+// both read the same signal the same way.
+inline int signalTier(const int8_t rssiDbm) {
+  if (rssiDbm >= -50) return 4;
+  if (rssiDbm >= -60) return 3;
+  if (rssiDbm >= -70) return 2;
+  return 1;
+}
+
 inline const char* signalBars(const int8_t rssiDbm) {
-  if (rssiDbm >= -50) return "||||";  // excellent
-  if (rssiDbm >= -60) return " |||";  // good
-  if (rssiDbm >= -70) return "  ||";  // fair
-  return "   |";                      // weak
+  switch (signalTier(rssiDbm)) {
+    case 4:
+      return "||||";
+    case 3:
+      return " |||";
+    case 2:
+      return "  ||";
+    default:
+      return "   |";
+  }
 }
 
 // Formats a row's signal subtitle: "<vendor>  <rssi> dBm <bars>" (vendor

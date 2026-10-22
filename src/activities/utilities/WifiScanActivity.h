@@ -25,6 +25,8 @@ class WifiScanActivity final : public UiListActivity {
     char detail[32];  // "AA:BB:CC:DD:EE:FF  ch 11"
     char signal[24];  // "-52 dBm  WPA2"
     int8_t rssi;
+    uint8_t bssid[6];  // for "Hunt this" (WifiHuntingActivity's preset target)
+    uint8_t channel;
   };
 
   int listCount() const override { return 1 + static_cast<int>(aps.size()); }
@@ -36,6 +38,12 @@ class WifiScanActivity final : public UiListActivity {
   void collectResults(int scanResult);
   // Callers hold the render lock.
   void rebuildRows();
+  // STA mode acquire/release, factored out of onEnter()/onExit() so "Hunt
+  // this" can release the radio before handing it to WifiHuntingActivity (two
+  // owners can't both hold it) and reacquire it when that pop returns here --
+  // without disturbing the already-shown results list.
+  void acquireRadio();
+  void releaseRadio();
 
   State state = State::SCANNING;
   int priorWifiMode = 0;  // wifi_mode_t at entry, restored on exit

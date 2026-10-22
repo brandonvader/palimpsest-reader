@@ -15,6 +15,7 @@ struct AirspaceDeauthSource {
   uint32_t count = 0;
   int8_t rssi = 0;
   uint32_t lastSeenMs = 0;
+  uint8_t channel = 0;  // for "Hunt this" (WifiHuntingActivity's preset channel)
 };
 
 struct AirspaceSsidSighting {
@@ -31,6 +32,7 @@ struct AirspaceKarmaCandidate {
   int ssidCount = 0;
   int8_t rssi = 0;
   uint32_t lastSeenMs = 0;
+  uint8_t channel = 0;  // for "Hunt this" (WifiHuntingActivity's preset channel)
 };
 
 // Passive WiFi airspace health monitor: hops channels 1-13 like Channel
@@ -120,6 +122,15 @@ class AirspaceMonitorActivity final : public UiListActivity {
     char label[24] = {};
     char subtitle[32] = {};  // vendor + signal ("Espressif  -52 dBm ||||") or "Out of range"
     char value[40] = {};
+    // Set for Pwnagotchy/Karma/deauth rows (a single tracked address); left
+    // false for evil-twin rows, which represent multiple addresses and so
+    // have no one device to hunt. Backs the "Hunt this" row action.
+    bool hasAddr = false;
+    uint8_t addr[6] = {};
+    uint8_t channel = 0;      // last channel this address was heard on; 0 = unknown
+    char huntLabel[24] = {};  // display name for the Hunting screen; empty falls back to the formatted address
+                              // (label[] above is already the formatted address for karma/deauth rows, so
+                              // reusing it there would show the same MAC twice)
   };
   static constexpr int MAX_ALERTS = 1 /*Pwnagotchy*/ + MAX_DEAUTH_SOURCES + MAX_TRACKED_SSIDS + MAX_KARMA_CANDIDATES;
   static constexpr int MAX_ROWS = 1 /*control*/ + MAX_ALERTS;
@@ -130,7 +141,23 @@ class AirspaceMonitorActivity final : public UiListActivity {
   const char* headerTitle() const override;
 
   void startMonitoring();
-  void stopMonitoring();
+  // `forTeardown`: called from onExit(), which ActivityManager always invokes
+  // while it already holds the render lock (same pattern FrameCaptureActivity/
+  // BleCaptureActivity use via StopReason::TEARDOWN) -- skips the
+  // RenderLock/state/rebuildRows/requestUpdate tail, which would otherwise
+  // deadlock the task re-acquiring a lock it already holds. Without this,
+  // backing out via Back/Home while still MONITORING (without tapping the
+  // in-screen Stop first) hangs the whole UI.
+  void stopMonitoring(bool forTeardown = false);
+  // Lighter pause used only when handing the radio to WifiHuntingActivity for
+  // a "Hunt this" row action: halts recording and the channel sweep WITHOUT
+  // touching esp_wifi_set_promiscuous()/WiFi.mode(). A full stopMonitoring()
+  // would restore WiFi.mode() to OFF if WiFi was off before this screen
+  // opened, which risks Arduino-ESP32's espWiFiStop() (an internal,
+  // unboundedly-waiting shutdown path) -- avoided here simply by never
+  // calling it for a mid-session hand-off. See WifiHuntingActivity's class
+  // comment for the matching NimBLE-side risk and its own avoidance.
+  void pauseForHunt();
   void drainForensicsRing();
   std::string buildForensicsPath() const;
   // Caller holds the render lock.

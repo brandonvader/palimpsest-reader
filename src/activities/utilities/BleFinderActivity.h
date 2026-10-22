@@ -79,6 +79,9 @@ class BleFinderActivity final : public UiListActivity {
     char label[20] = {};
     char subtitle[18] = {};  // signal ("-52 dBm ||||") or "Out of range"
     char value[40] = {};
+    // Every finding here is a single address, unlike AirspaceMonitorActivity's
+    // evil-twin rows, so this is always set. Backs the "Hunt this" row action.
+    uint8_t addr[6] = {};
   };
   static constexpr int MAX_ALERTS = MAX_FLIPPERS + MAX_TRACKERS + MAX_SPAM_SOURCES;
   static constexpr int MAX_ROWS = 1 /*control*/ + MAX_ALERTS;
@@ -89,7 +92,15 @@ class BleFinderActivity final : public UiListActivity {
   const char* headerTitle() const override;
 
   void startScanning();
-  void stopScanning();
+  // `forTeardown`: called from onExit(), which ActivityManager always invokes
+  // while it already holds the render lock (see FrameCaptureActivity's
+  // StopReason::TEARDOWN for the same pattern already established elsewhere)
+  // -- skips the RenderLock/state/rebuildRows/requestUpdate tail, which would
+  // otherwise deadlock the task trying to re-acquire a lock it already holds.
+  // Confirmed on hardware for WifiHuntingActivity's identical structure:
+  // backing out via Back/Home while still SCANNING (without tapping the
+  // in-screen Stop first) hung the whole UI every time.
+  void stopScanning(bool forTeardown = false);
   // Caller holds the render lock.
   void rebuildRows();
 

@@ -8,8 +8,11 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
+#include <memory>
 
 #include "MappedInputManager.h"
+#include "WifiHuntingActivity.h"
 #include "activities/RenderLock.h"
 #include "components/UITheme.h"
 
@@ -57,26 +60,32 @@ void WifiScanActivity::onEnter() {
   UiListActivity::onEnter();
   LOG_DBG("WSCAN", "Free heap at enter: %d bytes", ESP.getFreeHeap());
 
-  // Acquire the radio: a scan needs STA. Saved-network auto-connect must not run.
+  aps.reserve(MAX_APS);
+  acquireRadio();
+  startScan();
+}
+
+void WifiScanActivity::onExit() {
+  UiListActivity::onExit();
+  releaseRadio();
+  LOG_DBG("WSCAN", "Free heap at exit: %d bytes", ESP.getFreeHeap());
+}
+
+void WifiScanActivity::acquireRadio() {
+  // A scan needs STA. Saved-network auto-connect must not run.
   priorWifiMode = static_cast<int>(WiFi.getMode());
   if ((priorWifiMode & WIFI_MODE_STA) == 0) {
     WiFi.mode(static_cast<wifi_mode_t>(priorWifiMode | WIFI_MODE_STA));
     WiFi.disconnect();
     delay(100);
   }
-
-  aps.reserve(MAX_APS);
-  startScan();
 }
 
-void WifiScanActivity::onExit() {
-  UiListActivity::onExit();
-
-  // Release the radio: stop any scan in flight and restore the prior mode.
+void WifiScanActivity::releaseRadio() {
+  // Stop any scan in flight and restore the prior mode.
   if (WiFi.scanComplete() == WIFI_SCAN_RUNNING) esp_wifi_scan_stop();
   WiFi.scanDelete();
   WiFi.mode(priorWifiMode == WIFI_MODE_NULL ? WIFI_OFF : static_cast<wifi_mode_t>(priorWifiMode));
-  LOG_DBG("WSCAN", "Free heap at exit: %d bytes", ESP.getFreeHeap());
 }
 
 void WifiScanActivity::loop() {
@@ -114,9 +123,11 @@ void WifiScanActivity::collectResults(const int scanResult) {
       AccessPoint ap{};
       strlcpy(ap.ssid, WiFi.SSID(i).c_str(), sizeof(ap.ssid));
       const uint8_t* bssid = WiFi.BSSID(i);
+      ap.channel = static_cast<uint8_t>(WiFi.channel(i));
       if (bssid) {
+        memcpy(ap.bssid, bssid, 6);
         snprintf(ap.detail, sizeof(ap.detail), "%02X:%02X:%02X:%02X:%02X:%02X  ch %d", bssid[0], bssid[1], bssid[2],
-                 bssid[3], bssid[4], bssid[5], static_cast<int>(WiFi.channel(i)));
+                 bssid[3], bssid[4], bssid[5], static_cast<int>(ap.channel));
       }
       ap.rssi = static_cast<int8_t>(WiFi.RSSI(i));
       snprintf(ap.signal, sizeof(ap.signal), "%d dBm  %s", static_cast<int>(ap.rssi), authName(WiFi.encryptionType(i)));
@@ -157,7 +168,30 @@ void WifiScanActivity::rebuildRows() {
 }
 
 void WifiScanActivity::activateIndex(const int index) {
-  if (index == 0 && state == State::DONE) startScan();
+  if (index == 0) {
+    if (state == State::DONE) startScan();
+    return;
+  }
+  const size_t apIndex = static_cast<size_t>(index - 1);
+  if (apIndex >= aps.size()) return;
+  // Tap a row to hunt that access point: launch straight into WifiHuntingActivity
+  // with its BSSID and already-known channel preset, skipping discovery.
+  const AccessPoint& ap = aps[apIndex];
+  app.clearTapFlash();
+  // Hand off to WifiHuntingActivity WITHOUT releasing the radio first: this
+  // screen's scan has already finished by the time a row is tappable (state
+  // == DONE), so WiFi is just sitting in STA mode with nothing in flight --
+  // there's nothing to protect by releasing it. Releasing it here would leave
+  // WiFi mode at OFF/NULL, which WifiHuntingActivity would then read as its
+  // own "prior" mode and try to restore on its own Stop -- a transition
+  // through Arduino-ESP32's espWiFiStop(), an internal shutdown path with an
+  // unbounded wait best avoided. Leaving WiFi in STA here means Hunting's own
+  // Stop just restores STA -> STA, a no-op that never reaches espWiFiStop().
+  // acquireRadio() on return is a defensive no-op (mode never changed) that
+  // also re-affirms STA if anything did.
+  startActivityForResult(std::make_unique<WifiHuntingActivity>(renderer, mappedInput, ap.bssid, ap.channel,
+                                                               ap.ssid[0] ? ap.ssid : nullptr),
+                         [this](const ActivityResult&) { acquireRadio(); });
 }
 
 void WifiScanActivity::buildScreen(UiScreen& screen) {

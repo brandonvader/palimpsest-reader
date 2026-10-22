@@ -25,15 +25,16 @@ and a WiFi channel survey (roadmap 5a/5b) have since been built as well.
 | BLE Scan (name, address, address type, connectable, RSSI; Rescan) | done |
 | Frame Capture (WiFi management frames to pcap, Wireshark-ready) | done |
 | BLE Capture (advertisements to pcap, Wireshark-ready) | done |
-| Airspace Monitor (deauth/Pwnagotchy/evil twin/Karma detection) | done — **not yet tested on a touch device, see note below** |
-| Device Finder (Flipper Zero, Find My tracker, BLE spam detection) | done — **not yet tested on a touch device, see note below** |
+| Airspace Monitor (deauth/Pwnagotchy/evil twin/Karma detection) | done — **evil twin/Karma detection logic itself untested against live conflicting APs, see note below** |
+| Device Finder (Flipper Zero, Find My tracker, BLE spam detection) | done, tested on hardware |
+| Signal-strength ("fox hunting") display on Airspace Monitor / Device Finder findings | done, tested on hardware |
+| WiFi Hunting, BLE Hunting (single-target RSSI tracking, "Hunt this" from any scan/monitor screen) | done, tested on hardware |
 | Capture logging to SD | done (all three capture-capable tools; retention is manual, see below) |
 
-**Testing note:** Airspace Monitor and Device Finder were built, flashed, and verified to boot cleanly, but were never
-exercised through the touchscreen (built in a session with no one available to test interactively). Evil twin and
-Karma detection are also untested against live conflicting APs — there was no way to synthesize that traffic. Treat
-both tools as "should work" rather than "confirmed working" until someone has opened each screen, started/stopped a
-session, and seen real rows populate.
+**Testing note:** Airspace Monitor's deauth/Pwnagotchy detection, Device Finder, the signal-strength display, and both
+Hunting tools have all been exercised on hardware, including Start/Stop and the Back/Home paths. Evil twin and Karma
+detection specifically remain untested against live conflicting APs — there was no way to synthesize that traffic —
+so treat those two findings as "should work" rather than "confirmed working."
 
 Known limitations, both accepted for now (tracked in the project backlog):
 - the first WiFi Scan after boot keeps about 18 KB of heap held by the WiFi driver until the next reboot; it does
@@ -122,6 +123,31 @@ clearing NimBLE's own dedup cache so repeat advertisements keep registering) tha
 
 Every finding shows the same signal-strength subtitle as Airspace Monitor (dBm + 4-bar indicator), refreshed every
 5 seconds, with "Out of range" once nothing's been heard from it in ~10 seconds.
+
+Findings in both tools sort by severity tier first, then fresh ahead of stale, then strongest signal within that —
+the most actionable row in a tier leads, useful when you're walking around trying to narrow down a source.
+
+### WiFi Hunting / BLE Hunting
+
+Hunting (`Utilities → WiFi Tools → WiFi Hunting`, `Utilities → BLE Tools → BLE Hunting`) tracks one specific device's
+signal strength instead of surveying everything nearby — point-and-shoot "fox hunting" for a device you've already
+spotted. There are two ways in:
+
+- **Tap a device** in WiFi Scan, BLE Scan, Airspace Monitor, or Device Finder (evil twin rows excepted — they
+  represent multiple addresses, not one device) to launch straight into the matching Hunting tool with that
+  device's address, and its channel for WiFi, already filled in.
+- **Open the tool directly** from its category page and type or paste an address in on the on-screen keyboard.
+
+WiFi Hunting hops channels 1-13 the same way Channel Survey does until it hears the target transmit, then locks to
+that channel and polls its signal once a second; if the target goes quiet for a few seconds it resumes the sweep in
+case it moved channel. BLE Hunting has no channel concept to lock — NimBLE already listens across all advertising
+channels at once — so it starts tracking immediately. Both match on 802.11 management frames / BLE advertisements
+only, the same scope as the rest of Utilities' WiFi/BLE tools; no data-frame content is touched.
+
+The signal reading is shown as a non-directional gauge (concentric rings with a center blip sized by signal
+strength) above the usual dBm + bars readout — the hardware has one omnidirectional antenna with no bearing data, so
+this is proximity, not direction. Updates once a second, which this device's short reception range (everything's
+within ~100 ft) makes worth the extra refreshes for how much snappier it feels while fox-hunting.
 
 ## Authorized use
 
