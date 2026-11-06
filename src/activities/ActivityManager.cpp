@@ -28,6 +28,7 @@
 #include "util/BmpViewerActivity.h"
 #include "util/FrontlightPanelActivity.h"
 #include "util/FullScreenMessageActivity.h"
+#include "apps/AppsActivity.h"
 #include "utilities/UtilitiesActivity.h"
 
 static portMUX_TYPE activityManagerSpinlock = portMUX_INITIALIZER_UNLOCKED;
@@ -265,6 +266,15 @@ void ActivityManager::goToUsbDrive() {
 
 void ActivityManager::goToSettings() { replaceActivity(std::make_unique<SettingsActivity>(renderer, mappedInput)); }
 
+void ActivityManager::goToApps() {
+  auto activity = makeUniqueNoThrow<AppsActivity>(renderer, mappedInput);
+  if (!activity) {
+    LOG_ERR("ACT", "OOM: apps activity");
+    return;
+  }
+  replaceActivity(std::move(activity));
+}
+
 void ActivityManager::goToUtilities() {
   auto activity = makeUniqueNoThrow<UtilitiesActivity>(renderer, mappedInput);
   if (!activity) {
@@ -341,8 +351,8 @@ void ActivityManager::goHome(HomeMenuItem initialMenuItem, bool cleanInitialRefr
       initialMenuItem = HomeMenuItem::OPDS_BROWSER;
     } else if (activityName == "CrossPointWebServer") {
       initialMenuItem = HomeMenuItem::FILE_TRANSFER;
-    } else if (activityName == "Utilities" || activityName == "UtilitiesTools") {
-      initialMenuItem = HomeMenuItem::UTILITIES;
+    } else if (activityName == "Apps" || activityName == "Utilities" || activityName == "UtilitiesTools") {
+      initialMenuItem = HomeMenuItem::APPS;
     } else if (activityName == "Settings") {
       initialMenuItem = HomeMenuItem::SETTINGS_MENU;
     }

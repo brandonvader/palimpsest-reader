@@ -266,9 +266,14 @@ void CoverGridHomeUi::drawGrid(UiScreen& screen) {
 }
 
 void CoverGridHomeUi::drawTabs(UiScreen& screen, fui::Rect rect) {
-  static constexpr const uint8_t* ICONS[] = {FolderIcon, LibraryIcon, BlocksIcon, TransferIcon, Settings2Icon};
+  // Slots: File Browser, Library, [OPDS], File Transfer, Apps, Settings --
+  // same order as the classic list menu in HomeActivity. OPDS (slot 2) is the
+  // only optional one; Apps reuses the Blocks icon, same as OPDS, matching
+  // the list menu's existing icon reuse.
+  static constexpr const uint8_t* ICONS[] = {FolderIcon, LibraryIcon, BlocksIcon, TransferIcon, BlocksIcon,
+                                             Settings2Icon};
   int count = 0;
-  for (int i = 0; i < 5; ++i) {
+  for (int i = 0; i < 6; ++i) {
     if (i == 2 && !hasOpds) continue;
     auto& tab = tabItems[count];
     tab.value = books->size() + count;
